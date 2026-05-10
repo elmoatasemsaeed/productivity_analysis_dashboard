@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Story Analysis System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        /* تنسيقات إضافية لشاشة تسجيل الدخول */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(44, 62, 80, 0.95);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-card input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .login-card button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .login-card button:hover { background: #2980b9; }
+        .admin-only { display: none; } /* مخفي افتراضياً ويظهر للأدمن فقط */
+    </style>
+</head>
+<body>
+
+ <div id="login-overlay">
+    <div class="login-card">
+        <h2 style="text-align: center; color: #2c3e50; margin-top: 0;">System Login</h2>
+        <input type="text" id="loginUser" placeholder="Username">
+        <input type="password" id="loginPass" placeholder="Password">
+       <input type="password" id="ghTokenInput" placeholder="GitHub Token">
+        <label style="font-size: 0.8em; color: #555;">
+            <input type="checkbox" id="rememberMe" style="width: auto; margin-bottom: 20px;"> Remember Me
+        </label>
+        <button onclick="attemptLogin()">Login & Sync Data</button>
+    </div>
+</div>
+
+
+<div id="users-view" class="view" style="display:none;">
+    <h3>User Management</h3>
+    <div class="card">
+        <input type="text" id="newUserName" placeholder="Username">
+        <input type="text" id="newUserPass" placeholder="Password">
+        <select id="newUserRole">
+            <option value="viewer">Viewer</option>
+            <option value="admin">Admin</option>
+        </select>
+        <button onclick="addUser()">Add/Update User</button>
+    </div>
+    <table style="margin-top: 20px;">
+        <thead>
+            <tr><th>Username</th><th>Password</th><th>Role</th><th>Action</th></tr>
+        </thead>
+        <tbody id="usersListTable"></tbody>
+    </table>
+</div>
+    <header>
+        <h1>Productivity Analysis Dashboard</h1>
+        <div class="upload-section admin-only" id="admin-upload-controls">
+            <input type="file" id="csvFile" accept=".csv">
+            <button onclick="handleUpload()">Upload & Sync to GitHub</button>
+        </div>
+    </header>
+
+    <div id="sync-status" style="text-align: center; padding: 10px; background: #e8f4fd; display: none;">
+        Connecting to GitHub...
+    </div>
+
+    <nav id="main-nav" style="display: none;">
+        <button onclick="showView('iteration-view')">Iteration Summary</button>
+        <button onclick="showView('business-view')">Business Area View</button>
+        <button onclick="showView('team-view')">Team View</button>
+        <button onclick="showView('people-view')">People View</button>
+        <button onclick="showView('not-tested-view')">Not Tested</button>
+        <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
+        <button onclick="showView('holidays-view')" class="admin-only">Manage Holidays</button>
+        <button onclick="logout()" style="background: #e74c3c;">Logout</button>
+    </nav>
+
+    <main id="content">
+        <div id="welcome-msg" class="view">
+            <p>Please wait, loading data from GitHub...</p>
+        </div>
+
+        <div id="iteration-view" class="view" style="display:none;"></div>
+        <div id="business-view" class="view" style="display:none;"></div>
+        <div id="team-view" class="view" style="display:none;"></div>
+        <div id="people-view" class="view" style="display:none;"></div>
+        <div id="not-tested-view" class="view" style="display:none;"></div>
+        
+        <div id="holidays-view" class="view" style="display:none;">
+            <h3>Define Public Holidays</h3>
+            <input type="date" id="holidayPicker">
+            <button onclick="addHoliday()">Add Holiday</button>
+            <ul id="holidaysList"></ul>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
