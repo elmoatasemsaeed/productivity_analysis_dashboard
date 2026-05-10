@@ -287,43 +287,71 @@ async function handleUpload() {
     });
 }
 
-async function uploadToGitHub() {
+async function uploadToGitHub(jsonData) {
     const statusDiv = document.getElementById('sync-status');
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "🚀 Uploading to GitHub...";
+    statusDiv.innerText = "⏳ Uploading Large File (Git Data API)...";
 
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(rawData))));
-    
-    // نحتاج أولاً لمعرفة إذا كان الملف موجوداً للحصول على الـ SHA الخاص به
-    let sha = "";
     try {
-        const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.path}`, {
+        // 1. جلب بيانات أحدث "Commit" لمعرفة الـ SHA الخاص بالفرع الحالي
+        const branchRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/branches/main`, {
             headers: { 'Authorization': `token ${githubToken}` }
         });
-        if (res.ok) {
-            const data = await res.json();
-            sha = data.sha;
-        }
-    } catch (e) {}
+        const branchData = await branchRes.json();
+        const lastCommitSha = branchData.commit.sha;
 
-    const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.path}`, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `token ${githubToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            message: "Update productivity data",
-            content: content,
-            sha: sha, // ضروري لتحديث ملف موجود
-            branch: GH_CONFIG.branch
-        })
-    });
+        // 2. إنشاء "Blob" جديد للمحتوى (هذا يتجاوز ليميت الـ 1 ميجا)
+        const blobRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/blobs`, {
+            method: 'POST',
+            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: JSON.stringify(jsonData, null, 2),
+                encoding: 'utf-8'
+            })
+        });
+        const blobData = await blobRes.json();
 
-    if (response.ok) {
-        statusDiv.innerText = "✅ Successfully synced to GitHub!";
-    } else {
-        alert("Error uploading to GitHub. Check your token and repo permissions.");
+        // 3. إنشاء "Tree" يربط الملف بالـ Blob الجديد
+        const treeRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/trees`, {
+            method: 'POST',
+            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                base_tree: branchData.commit.commit.tree.sha,
+                tree: [{
+                    path: GH_CONFIG.path,
+                    mode: '100644', // ملف عادي
+                    type: 'blob',
+                    sha: blobData.sha
+                }]
+            })
+        });
+        const treeData = await treeRes.json();
+
+        // 4. إنشاء "Commit" جديد
+        const commitRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/commits`, {
+            method: 'POST',
+            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: `Update data.json (Large File Support) - ${new Date().toLocaleString()}`,
+                tree: treeData.sha,
+                parents: [lastCommitSha]
+            })
+        });
+        const commitData = await commitRes.json();
+
+        // 5. تحديث مرجع الفرع (Branch Reference) ليشير إلى الكوميت الجديد
+        await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/refs/heads/main`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sha: commitData.sha })
+        });
+
+        statusDiv.innerText = "✅ Large data file synced successfully!";
+        setTimeout(() => statusDiv.style.display = 'none', 3000);
+
+    } catch (e) {
+        console.error("Full Error Detail:", e);
+        statusDiv.innerText = "❌ Sync Failed: File too large or connection error.";
     }
 }
 
