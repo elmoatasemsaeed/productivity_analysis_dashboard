@@ -195,6 +195,7 @@ async function fetchDataFromGitHub() {
             const content = await res.text();
             rawData = JSON.parse(content);
             processData(); 
+            await loadConfigsFromCloud();
             showView('iteration-view');
             statusDiv.innerText = "✅ Data loaded from GitHub";
         } else {
@@ -219,40 +220,38 @@ function logout() { // تم تصحيح الكلمة هنا
 
 // تحديث window.onload
 window.onload = async () => {
-    // 1. استرجاع القيم من الـ localStorage
+    // 1. استرجاع القيم
     const savedUser = localStorage.getItem('saved_user');
     const savedPass = localStorage.getItem('saved_pass');
     const savedGhToken = localStorage.getItem('gh_token');
     const savedAzurePat = localStorage.getItem('azure_pat');
     const savedRole = localStorage.getItem('app_role');
 
-    // 2. تعبئة الحقول في واجهة المستخدم فوراً إذا كانت موجودة
+    // 2. تعبئة الحقول
     if (savedUser) document.getElementById('loginUser').value = savedUser;
     if (savedPass) document.getElementById('loginPass').value = savedPass;
     if (savedGhToken) document.getElementById('ghTokenInput').value = savedGhToken;
     if (savedAzurePat) document.getElementById('azurePatInput').value = savedAzurePat;
 
-    // 3. الدخول التلقائي إذا كانت البيانات الأساسية مكتملة
-    // استخدمنا savedGhToken بدلاً من savedToken لأنه الاسم الذي عرفناه فوق
+    // 3. الدخول التلقائي
     if (savedGhToken && savedRole && savedUser) {
         githubToken = savedGhToken; 
         
-        // إخفاء شاشة الدخول وإظهار القائمة
         document.getElementById('login-overlay').style.display = 'none';
         if (document.getElementById('main-nav')) {
             document.getElementById('main-nav').style.display = 'flex';
         }
 
-        // تحديث الصلاحيات وجلب البيانات
         currentUser = { name: savedUser, role: savedRole };
         setupPermissions();
         await fetchDataFromGitHub();
+    }
 
+    // 4. استدعاء الجدول مباشرة هنا بدلاً من إضافة Event Listener جديد
     if (typeof renderAzureConfigsTable === 'function') {
         renderAzureConfigsTable();
     }
-        }
-};
+}; // إغلاق window.onload
 
 function renderHolidays() {
     const list = document.getElementById('holidaysList');
@@ -289,6 +288,7 @@ async function handleUpload() {
             processData(); 
             // التعديل هنا: تمرير rawData كمعامل للدالة
             await uploadToGitHub(rawData); 
+            await loadConfigsFromCloud();
             showView('iteration-view');
         }
     });
@@ -1542,10 +1542,11 @@ function removeHoliday(date) {
 renderHolidays();
 
 // المتغيرات الجديدة
-let azureConfigs = JSON.parse(localStorage.getItem('az_configs') || "[]");
+let azureConfigs = []; // تغيير من "" إلى مصفوفة فارغة لتجنب أخطاء الـ map
+let azureConfigsSha = "";
 let azurePAT = localStorage.getItem('az_pat') || "";
 
-// 1. تحديث دالة الدخول لحفظ الـ PAT
+// 1. تحديث دالة الدخول
 const originalAttemptLogin = attemptLogin;
 attemptLogin = async function() {
     const pat = document.getElementById('azurePatInput').value;
@@ -1553,169 +1554,134 @@ attemptLogin = async function() {
     if (remember) localStorage.setItem('az_pat', pat);
     azurePAT = pat;
     
-    // استكمال الدخول الأصلي
     await originalAttemptLogin();
-    renderAzureDropdown();
+    // تأكد من تحميل الإعدادات بعد الدخول بنجاح
+    await loadConfigsFromCloud(); 
 };
 
-// 2. إدارة الإعدادات
-function addAzureConfig() {
-    // تأكد من استخدام نفس الأسماء التي يتوقعها الجدول
+// 2. إضافة إعداد جديد
+async function addAzureConfig() {
     const config = {
-        queryId: document.getElementById('azQueryId').value,     // غيّرنا id إلى queryId
-        accountName: document.getElementById('azQueryName').value, // غيّرنا name إلى accountName
+        id: document.getElementById('azQueryId').value, // تغيير queryId لـ id ليتناسب مع renderAzureDropdown
+        name: document.getElementById('azQueryName').value, // تغيير accountName لـ name
         org: document.getElementById('azOrg').value,
         project: document.getElementById('azProject').value
     };
 
-    if (!config.queryId || !config.accountName) return alert("Please fill all fields");
+    if (!config.id || !config.name) return alert("Please fill all fields");
 
-    // تحديث المصفوفة العامة
-    azureConfigs.push(config);
+    try {
+        // جلب أحدث نسخة لضمان الـ SHA
+        await loadConfigsFromCloud();
+        
+        const updatedConfigs = [...azureConfigs, config];
 
-    // الحفظ باستخدام المفتاح الصحيح 'azure_configs' (نفس الموجود في الـ render)
-    localStorage.setItem('azure_configs', JSON.stringify(azureConfigs));
+        const updateResponse = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${githubToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: "Add Azure Config",
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(updatedConfigs, null, 2)))), // دعم الرموز الخاصة
+                sha: azureConfigsSha
+            })
+        });
 
-    // تحديث الواجهة
-    renderAzureDropdown();
-    renderAzureConfigsTable();
-    
-    // اختياري: مسح الحقول بعد الإضافة
-    document.getElementById('azQueryId').value = '';
-    document.getElementById('azQueryName').value = '';
+        if (updateResponse.ok) {
+            alert("تم الحفظ بنجاح!");
+            await loadConfigsFromCloud(); // إعادة التحميل لتحديث المصفوفة والـ SHA
+        } else {
+            throw new Error("Failed to update GitHub");
+        }
+    } catch (error) {
+        alert("خطأ أثناء الحفظ: " + error.message);
+    }
 }
 
+// 3. حذف إعداد (تعديل جذري للمزامنة مع الكلاود)
+async function deleteAzureConfig(index) {
+    if (!confirm("هل أنت متأكد من حذف هذا الإعداد من السحابة؟")) return;
+
+    try {
+        // 1. إزالة العنصر من المصفوفة المحلية
+        const updatedConfigs = [...azureConfigs];
+        updatedConfigs.splice(index, 1);
+
+        // 2. تحديث GitHub
+        const updateResponse = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${githubToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: "Delete Azure Config",
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(updatedConfigs, null, 2)))),
+                sha: azureConfigsSha
+            })
+        });
+
+        if (updateResponse.ok) {
+            alert("تم الحذف من السحابة بنجاح");
+            await loadConfigsFromCloud();
+        } else {
+            throw new Error("فشل التحديث في GitHub");
+        }
+    } catch (error) {
+        alert("خطأ أثناء الحذف: " + error.message);
+    }
+}
+
+// 4. الدوال المساعدة للرسم
 function renderAzureDropdown() {
     const sel = document.getElementById('azureQuerySelector');
     if (!sel) return;
+    // تم توحيد المسميات لـ c.id و c.name
     sel.innerHTML = azureConfigs.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// 3. وظيفة الجلب الأساسية مع مراعاة الـ Limitations (Batch 200)
-async function fetchFromAzure() {
-    const queryId = document.getElementById('azureQuerySelector').value;
-    const config = azureConfigs.find(c => c.id === queryId);
-    if (!config || !azurePAT) return alert("Configuration or PAT missing!");
-
-    const btn = document.getElementById('fetchAzureBtn');
-    btn.disabled = true;
-    btn.innerText = "Connecting...";
-
-    try {
-        const auth = 'Basic ' + btoa(':' + azurePAT);
-        
-        // أ. جلب الـ IDs من الكويري (رابط الكويري المباشر)
-        const queryUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
-        const qRes = await fetch(queryUrl, { headers: { 'Authorization': auth } });
-        const qData = await qRes.json();
-
-        // استخراج جميع الـ IDs الفريدة من الـ Relations (لأن الكويري Tree)
-        let ids = [];
-        if (qData.workItemRelations) {
-            ids = [...new Set(qData.workItemRelations.flatMap(r => [r.source ? r.source.id : null, r.target ? r.target.id : null].filter(id => id !== null)))];
-        } else {
-            ids = qData.workItems.map(i => i.id);
-        }
-
-        if (ids.length === 0) throw new Error("No work items found.");
-
-        // ب. جلب التفاصيل على دفعات (كل دفعة 200 عنصر)
-        let allItems = [];
-        const chunkSize = 200;
-        const fields = [
-            "System.Id", "System.State", "System.WorkItemType", "System.Title", "System.AssignedTo",
-            "Microsoft.VSTS.Common.Activity", "NT.OriginalEstimation", "Custom.TimeSheet_DevActualTime",
-            "Custom.TimeSheet_TestingActualTime", "Microsoft.VSTS.Common.ActivatedDate",
-            "MyCompany.MyProcess.BusinessArea", "System.IterationPath", "Custom.CustomResolvedDate",
-            "MyCompany.MyProcess.TestedDate", "MyCompany.MyProcess.Tester",
-            "Microsoft.VSTS.Common.ResolvedDate", "Microsoft.VSTS.Common.Severity", "NT.GenericBug"
-        ];
-
-        for (let i = 0; i < ids.length; i += chunkSize) {
-            const chunk = ids.slice(i, i + chunkSize);
-            const batchRes = await fetch(`https://dev.azure.com/${config.org}/_apis/wit/workitemsbatch?api-version=6.0`, {
-                method: 'POST',
-                headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: chunk, fields: fields })
-            });
-            const batchData = await batchRes.json();
-            allItems = allItems.concat(batchData.value);
-        }
-
-        // ج. عمل Mapping للبيانات لتطابق هيكل ملف الـ CSV
-        rawData = allItems.map(item => {
-            const f = item.fields;
-            return {
-                'State': f['System.State'] || '',
-                'ID': item.id,
-                'Work Item Type': f['System.WorkItemType'] || '',
-                'Title': f['System.Title'] || '',
-                'Assigned To': f['System.AssignedTo']?.displayName || f['System.AssignedTo'] || '',
-                'Activity': f['Microsoft.VSTS.Common.Activity'] || '',
-                'Original Estimation': f['NT.OriginalEstimation'] || '',
-                'TimeSheet_DevActualTime': f['Custom.TimeSheet_DevActualTime'] || '',
-                'TimeSheet_TestingActualTime': f['Custom.TimeSheet_TestingActualTime'] || '',
-                'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'] || '',
-                'Business Area': f['MyCompany.MyProcess.BusinessArea'] || '',
-                'Iteration Path': f['System.IterationPath'] || '',
-                'CustomResolvedDate': f['Custom.CustomResolvedDate'] || '',
-                'Tested Date': f['MyCompany.MyProcess.TestedDate'] || '',
-                'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'] || '',
-                'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'] || '',
-                'Severity': f['Microsoft.VSTS.Common.Severity'] || '',
-                'GenericBug': f['NT.GenericBug'] || ''
-            };
-        });
-
-        // د. معالجة البيانات وتحديث الواجهة
-        processData();
-        await uploadToGitHub(rawData); // مزامنة مع GitHub كما يفعل الـ CSV
-        alert(`Successfully fetched ${rawData.length} items from Azure!`);
-        showView('iteration-view');
-
-    } catch (err) {
-        console.error(ids);
-        alert("Error fetching from Azure: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "Fetch from Azure";
-    }
-};
-
 function renderAzureConfigsTable() {
-    // هذه الدالة وظيفتها تحديث الجدول الذي يعرض إعدادات Azure
-    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من وجود هذا الـ ID في الـ HTML
+    const tbody = document.getElementById('azureConfigsTableBody');
     if (!tbody) return;
 
-    // جلب الإعدادات من localStorage (بفرض أنك تحفظها هناك)
-    const configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
-    
-    tbody.innerHTML = configs.map((config, index) => `
+    tbody.innerHTML = azureConfigs.map((config, index) => `
         <tr>
-            <td>${config.accountName || 'N/A'}</td>
-            <td>${config.queryId || 'N/A'}</td>
+            <td>${config.name || 'N/A'}</td>
+            <td>${config.id || 'N/A'}</td>
             <td>
-                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:3px;">حذف</button>
+                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">حذف</button>
             </td>
         </tr>
     `).join('');
 }
-function deleteAzureConfig(index) {
-    if (confirm("هل أنت متأكد من رغبتك في حذف هذا الإعداد؟")) {
-        // جلب الإعدادات الحالية
-        let configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
+
+// 5. تحميل البيانات
+async function loadConfigsFromCloud() {
+    if (!githubToken) return;
+    try {
+        const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            headers: { 'Authorization': `token ${githubToken}`, 'Cache-Control': 'no-cache' }
+        });
         
-        // حذف العنصر المطلوب بناءً على الترتيب (index)
-        configs.splice(index, 1);
-        
-        // حفظ القائمة المحدثة
-        localStorage.setItem('azure_configs', JSON.stringify(configs));
-        
-        // إعادة رسم الجدول لتحديث البيانات المعروضة
-        if (typeof renderAzureConfigsTable === 'function') {
-            renderAzureConfigsTable();
+        if (response.ok) {
+            const data = await response.json();
+            azureConfigsSha = data.sha;
+            // استخدام دالة لفك التشفير تدعم الـ UTF-8
+            azureConfigs = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+        } else {
+            azureConfigs = [];
         }
-        
-        alert("تم حذف الإعداد بنجاح");
+    } catch (e) {
+        console.error("Error loading configs:", e);
+        azureConfigs = [];
     }
+    renderAzureConfigsTable();
+    renderAzureDropdown();
 }
+
+// تشغيل التحميل عند فتح الصفحة
+window.addEventListener('load', async () => {
+    if (githubToken) await loadConfigsFromCloud();
+});
