@@ -232,6 +232,7 @@ window.onload = async function() {
     renderHolidays();
 
     const savedToken = localStorage.getItem('gh_token');
+    const savedAzurePat = localStorage.getItem('azure_pat');
     const savedRole = localStorage.getItem('app_role');
     const savedUser = localStorage.getItem('saved_user');
 
@@ -245,6 +246,7 @@ window.onload = async function() {
         document.getElementById('loginUser').value = savedUser;
         document.getElementById('loginPass').value = localStorage.getItem('saved_pass') || "";
         document.getElementById('ghTokenInput').value = savedToken || "";
+        document.getElementById('azurePatInput').value = savedAzurePat || "";
     }
 };
 
