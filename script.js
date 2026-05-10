@@ -7,7 +7,7 @@ let githubToken = localStorage.getItem('gh_token') || "";
 // GitHub Configuration
 const GH_CONFIG = {
     owner: 'elmoatasemsaeed',
-    repo: 'iteration_follow_up-',
+    repo: 'Productivity_Analysis_Dashboard',
     path: 'data.json',
     usersPath: 'users.json', // مسار ملف المستخدمين الجديد
     branch: 'main'
