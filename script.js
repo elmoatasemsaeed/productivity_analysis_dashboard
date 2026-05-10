@@ -1552,17 +1552,29 @@ attemptLogin = async function() {
 
 // 2. إدارة الإعدادات
 function addAzureConfig() {
+    // تأكد من استخدام نفس الأسماء التي يتوقعها الجدول
     const config = {
-        id: document.getElementById('azQueryId').value,
-        name: document.getElementById('azQueryName').value,
+        queryId: document.getElementById('azQueryId').value,     // غيّرنا id إلى queryId
+        accountName: document.getElementById('azQueryName').value, // غيّرنا name إلى accountName
         org: document.getElementById('azOrg').value,
         project: document.getElementById('azProject').value
     };
-    if (!config.id || !config.name) return alert("Please fill all fields");
+
+    if (!config.queryId || !config.accountName) return alert("Please fill all fields");
+
+    // تحديث المصفوفة العامة
     azureConfigs.push(config);
-    localStorage.setItem('az_configs', JSON.stringify(azureConfigs));
+
+    // الحفظ باستخدام المفتاح الصحيح 'azure_configs' (نفس الموجود في الـ render)
+    localStorage.setItem('azure_configs', JSON.stringify(azureConfigs));
+
+    // تحديث الواجهة
     renderAzureDropdown();
     renderAzureConfigsTable();
+    
+    // اختياري: مسح الحقول بعد الإضافة
+    document.getElementById('azQueryId').value = '';
+    document.getElementById('azQueryName').value = '';
 }
 
 function renderAzureDropdown() {
