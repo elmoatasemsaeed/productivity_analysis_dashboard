@@ -75,8 +75,11 @@
         <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
         <button onclick="document.getElementById('csvFile').click()" class="admin-only">Upload CSV</button>
         
-        <select id="azureConfigSelect" style="padding: 8px; border-radius: 4px;"></select>
-        <button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+        <select id="azureIterationSelect" style="padding: 8px; border-radius: 4px;">
+    <option value="">Select Iteration...</option>
+</select>
+
+<button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
         
         <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
 
