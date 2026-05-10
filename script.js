@@ -1662,13 +1662,15 @@ async function loadConfigsFromCloud() {
     if (!githubToken) return;
     try {
         const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
-            headers: { 'Authorization': `token ${githubToken}`, 'Cache-Control': 'no-cache' }
+            headers: { 
+                'Authorization': `token ${githubToken}`
+                // تم حذف Cache-Control من هنا لحل مشكلة CORS
+            }
         });
         
         if (response.ok) {
             const data = await response.json();
             azureConfigsSha = data.sha;
-            // استخدام دالة لفك التشفير تدعم الـ UTF-8
             azureConfigs = JSON.parse(decodeURIComponent(escape(atob(data.content))));
         } else {
             azureConfigs = [];
@@ -1677,8 +1679,6 @@ async function loadConfigsFromCloud() {
         console.error("Error loading configs:", e);
         azureConfigs = [];
     }
-    renderAzureConfigsTable();
-    renderAzureDropdown();
 }
 
 // تشغيل التحميل عند فتح الصفحة
