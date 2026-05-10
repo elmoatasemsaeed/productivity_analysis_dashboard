@@ -1738,10 +1738,26 @@ async function fetchFromAzure() {
         const detailsData = await detailsResponse.json();
 
         // 3. تحديث مصفوفة rawData العالمية بالبيانات المفصلة
-        rawData = detailsData.value.map(item => ({
-            id: item.id,
-            fields: item.fields
-        }));
+       rawData = detailsData.value.map(item => ({
+    'ID': item.id,
+    'Work Item Type': item.fields['System.WorkItemType'],
+    'Title': item.fields['System.Title'],
+    'State': item.fields['System.State'],
+    'Assigned To': item.fields['System.AssignedTo']?.displayName || item.fields['System.AssignedTo'],
+    'Activity': item.fields['Microsoft.VSTS.Common.Activity'],
+    'Original Estimation': item.fields['NT.OriginalEstimation'],
+    'TimeSheet_DevActualTime': item.fields['Custom.TimeSheet_DevActualTime'],
+    'TimeSheet_TestingActualTime': item.fields['Custom.TimeSheet_TestingActualTime'],
+    'Activated Date': item.fields['Microsoft.VSTS.Common.ActivatedDate'],
+    'Business Area': item.fields['MyCompany.MyProcess.BusinessArea'],
+    'Iteration Path': item.fields['System.IterationPath'],
+    'CustomResolvedDate': item.fields['Custom.CustomResolvedDate'],
+    'Tested Date': item.fields['MyCompany.MyProcess.TestedDate'],
+    'Assigned To Tester': item.fields['MyCompany.MyProcess.Tester']?.displayName || item.fields['MyCompany.MyProcess.Tester'],
+    'Resolved Date': item.fields['Microsoft.VSTS.Common.ResolvedDate'],
+    'Severity': item.fields['Microsoft.VSTS.Common.Severity'],
+    'GenericBug': item.fields['NT.GenericBug']
+}));
 
         // 4. تشغيل المعالجة وتحديث الواجهة
         processData();           // سيعيد حساب الـ Effort Variance والـ Rework Ratio
