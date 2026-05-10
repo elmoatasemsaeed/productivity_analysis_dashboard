@@ -57,18 +57,16 @@ async function attemptLogin() {
                 localStorage.setItem('saved_pass', pass);
             }
 
-            function setupPermissions() {
-    const role = localStorage.getItem('app_role') || (currentUser ? currentUser.role : null);
-    const adminElements = document.querySelectorAll('.admin-only');
-    
-    adminElements.forEach(el => {
-        // تحويل الرتبة لنص صغير قبل المقارنة
-        if (role && role.toLowerCase() === 'admin') { 
-            el.style.setProperty('display', 'inline-block', 'important');
+            setupPermissions();
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-nav').style.display = 'flex';
+            await fetchDataFromGitHub();
         } else {
-            el.style.setProperty('display', 'none', 'important');
+            alert("Invalid Credentials!");
         }
-    });
+    } catch (e) {
+        alert("Login failed: Could not connect to GitHub or invalid Token.");
+    }
 }
 function renderUsersTable() {
     const tbody = document.getElementById('usersListTable');
@@ -1679,9 +1677,11 @@ async function fetchFromAzure() {
 };
 
 function renderAzureConfigsTable() {
-    const tbody = document.getElementById('azureConfigsTableBody'); 
+    // هذه الدالة وظيفتها تحديث الجدول الذي يعرض إعدادات Azure
+    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من وجود هذا الـ ID في الـ HTML
     if (!tbody) return;
 
+    // جلب الإعدادات من localStorage (بفرض أنك تحفظها هناك)
     const configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
     
     tbody.innerHTML = configs.map((config, index) => `
@@ -1689,18 +1689,8 @@ function renderAzureConfigsTable() {
             <td>${config.accountName || 'N/A'}</td>
             <td>${config.queryId || 'N/A'}</td>
             <td>
-                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; padding:5px 10px; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:3px;">حذف</button>
             </td>
         </tr>
     `).join('');
 }
-
-function deleteAzureConfig(index) {
-    let configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
-    configs.splice(index, 1);
-    localStorage.setItem('azure_configs', JSON.stringify(configs));
-    renderAzureConfigsTable();
-}
-
-// تأكد من استدعاء التحديث عند تحميل الصفحة
-renderAzureConfigsTable();
