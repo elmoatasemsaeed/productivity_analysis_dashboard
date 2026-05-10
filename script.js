@@ -1694,12 +1694,19 @@ async function loadConfigsFromCloud() {
 }
 
 async function fetchFromAzure() {
-    const statusDiv = document.getElementById('status-message'); // افترضنا وجود عنصر للملحوظات
-    const iterationSelect = document.getElementById('iteration-select'); // القائمة التي تختار منها الـ Iteration
-    const selectedIterationPath = iterationSelect.value;
+    const iterationSelect = document.getElementById('azureIterationSelect');
+    
+    // تأمين: إذا لم يجد العنصر، لا تكمل التنفيذ
+    if (!iterationSelect) {
+        console.error("العنصر azureIterationSelect غير موجود في الصفحة");
+        alert("Please ensure the iteration selector is loaded.");
+        return;
+    }
 
+    const selectedIterationPath = iterationSelect.value;
+    
     if (!selectedIterationPath) {
-        alert("يرجى اختيار الـ Iteration من القائمة أولاً");
+        alert("Please select an iteration first");
         return;
     }
 
