@@ -50,6 +50,7 @@ async function attemptLogin() {
             
             if (remember) {
                 localStorage.setItem('gh_token', token);
+                localStorage.setItem('azure_pat', azurePat);
                 localStorage.setItem('app_role', currentUser.role);
                 localStorage.setItem('saved_user', user);
                 localStorage.setItem('saved_pass', pass);
