@@ -251,6 +251,7 @@ window.onload = async () => {
     if (typeof renderAzureConfigsTable === 'function') {
         renderAzureConfigsTable();
     }
+        }
 };
 
 function renderHolidays() {
