@@ -1660,4 +1660,23 @@ async function fetchFromAzure() {
         btn.disabled = false;
         btn.innerText = "Fetch from Azure";
     }
+};
+
+function renderAzureConfigsTable() {
+    // هذه الدالة وظيفتها تحديث الجدول الذي يعرض إعدادات Azure
+    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من وجود هذا الـ ID في الـ HTML
+    if (!tbody) return;
+
+    // جلب الإعدادات من localStorage (بفرض أنك تحفظها هناك)
+    const configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
+    
+    tbody.innerHTML = configs.map((config, index) => `
+        <tr>
+            <td>${config.accountName || 'N/A'}</td>
+            <td>${config.queryId || 'N/A'}</td>
+            <td>
+                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:3px;">حذف</button>
+            </td>
+        </tr>
+    `).join('');
 }
