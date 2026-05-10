@@ -1533,3 +1533,131 @@ function removeHoliday(date) {
 
 renderHolidays();
 
+// المتغيرات الجديدة
+let azureConfigs = JSON.parse(localStorage.getItem('az_configs') || "[]");
+let azurePAT = localStorage.getItem('az_pat') || "";
+
+// 1. تحديث دالة الدخول لحفظ الـ PAT
+const originalAttemptLogin = attemptLogin;
+attemptLogin = async function() {
+    const pat = document.getElementById('azurePatInput').value;
+    const remember = document.getElementById('rememberMe').checked;
+    if (remember) localStorage.setItem('az_pat', pat);
+    azurePAT = pat;
+    
+    // استكمال الدخول الأصلي
+    await originalAttemptLogin();
+    renderAzureDropdown();
+};
+
+// 2. إدارة الإعدادات
+function addAzureConfig() {
+    const config = {
+        id: document.getElementById('azQueryId').value,
+        name: document.getElementById('azQueryName').value,
+        org: document.getElementById('azOrg').value,
+        project: document.getElementById('azProject').value
+    };
+    if (!config.id || !config.name) return alert("Please fill all fields");
+    azureConfigs.push(config);
+    localStorage.setItem('az_configs', JSON.stringify(azureConfigs));
+    renderAzureDropdown();
+    renderAzureConfigsTable();
+}
+
+function renderAzureDropdown() {
+    const sel = document.getElementById('azureQuerySelector');
+    if (!sel) return;
+    sel.innerHTML = azureConfigs.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+// 3. وظيفة الجلب الأساسية مع مراعاة الـ Limitations (Batch 200)
+async function fetchFromAzure() {
+    const queryId = document.getElementById('azureQuerySelector').value;
+    const config = azureConfigs.find(c => c.id === queryId);
+    if (!config || !azurePAT) return alert("Configuration or PAT missing!");
+
+    const btn = document.getElementById('btnFetchAzure');
+    btn.disabled = true;
+    btn.innerText = "Connecting...";
+
+    try {
+        const auth = 'Basic ' + btoa(':' + azurePAT);
+        
+        // أ. جلب الـ IDs من الكويري (رابط الكويري المباشر)
+        const queryUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
+        const qRes = await fetch(queryUrl, { headers: { 'Authorization': auth } });
+        const qData = await qRes.json();
+
+        // استخراج جميع الـ IDs الفريدة من الـ Relations (لأن الكويري Tree)
+        let ids = [];
+        if (qData.workItemRelations) {
+            ids = [...new Set(qData.workItemRelations.flatMap(r => [r.source ? r.source.id : null, r.target ? r.target.id : null].filter(id => id !== null)))];
+        } else {
+            ids = qData.workItems.map(i => i.id);
+        }
+
+        if (ids.length === 0) throw new Error("No work items found.");
+
+        // ب. جلب التفاصيل على دفعات (كل دفعة 200 عنصر)
+        let allItems = [];
+        const chunkSize = 200;
+        const fields = [
+            "System.Id", "System.State", "System.WorkItemType", "System.Title", "System.AssignedTo",
+            "Microsoft.VSTS.Common.Activity", "NT.OriginalEstimation", "Custom.TimeSheet_DevActualTime",
+            "Custom.TimeSheet_TestingActualTime", "Microsoft.VSTS.Common.ActivatedDate",
+            "MyCompany.MyProcess.BusinessArea", "System.IterationPath", "Custom.CustomResolvedDate",
+            "MyCompany.MyProcess.TestedDate", "MyCompany.MyProcess.Tester",
+            "Microsoft.VSTS.Common.ResolvedDate", "Microsoft.VSTS.Common.Severity", "NT.GenericBug"
+        ];
+
+        for (let i = 0; i < ids.length; i += chunkSize) {
+            const chunk = ids.slice(i, i + chunkSize);
+            const batchRes = await fetch(`https://dev.azure.com/${config.org}/_apis/wit/workitemsbatch?api-version=6.0`, {
+                method: 'POST',
+                headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: chunk, fields: fields })
+            });
+            const batchData = await batchRes.json();
+            allItems = allItems.concat(batchData.value);
+        }
+
+        // ج. عمل Mapping للبيانات لتطابق هيكل ملف الـ CSV
+        rawData = allItems.map(item => {
+            const f = item.fields;
+            return {
+                'State': f['System.State'] || '',
+                'ID': item.id,
+                'Work Item Type': f['System.WorkItemType'] || '',
+                'Title': f['System.Title'] || '',
+                'Assigned To': f['System.AssignedTo']?.displayName || f['System.AssignedTo'] || '',
+                'Activity': f['Microsoft.VSTS.Common.Activity'] || '',
+                'Original Estimation': f['NT.OriginalEstimation'] || '',
+                'TimeSheet_DevActualTime': f['Custom.TimeSheet_DevActualTime'] || '',
+                'TimeSheet_TestingActualTime': f['Custom.TimeSheet_TestingActualTime'] || '',
+                'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'] || '',
+                'Business Area': f['MyCompany.MyProcess.BusinessArea'] || '',
+                'Iteration Path': f['System.IterationPath'] || '',
+                'CustomResolvedDate': f['Custom.CustomResolvedDate'] || '',
+                'Tested Date': f['MyCompany.MyProcess.TestedDate'] || '',
+                'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'] || '',
+                'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'] || '',
+                'Severity': f['Microsoft.VSTS.Common.Severity'] || '',
+                'GenericBug': f['NT.GenericBug'] || ''
+            };
+        });
+
+        // د. معالجة البيانات وتحديث الواجهة
+        processData();
+        await uploadToGitHub(rawData); // مزامنة مع GitHub كما يفعل الـ CSV
+        alert(`Successfully fetched ${rawData.length} items from Azure!`);
+        showView('iteration-view');
+
+    } catch (err) {
+        console.error(ids);
+        alert("Error fetching from Azure: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "Fetch from Azure";
+    }
+}
