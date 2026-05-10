@@ -1694,109 +1694,103 @@ async function loadConfigsFromCloud() {
 }
 
 async function fetchFromAzure() {
-    const select = document.getElementById('azureConfigSelect');
-    const configIndex = select.value;
-    
-    // التحقق من الاختيار
-    if (configIndex === "") return alert("Please select an iteration first");
-    
-    const config = azureConfigs[configIndex];
-    const pat = localStorage.getItem('azure_pat'); 
+    const statusDiv = document.getElementById('status-message'); // افترضنا وجود عنصر للملحوظات
+    const iterationSelect = document.getElementById('iteration-select'); // القائمة التي تختار منها الـ Iteration
+    const selectedIterationPath = iterationSelect.value;
 
-    if (!pat) return alert("Azure PAT is missing. Please log in again.");
+    if (!selectedIterationPath) {
+        alert("يرجى اختيار الـ Iteration من القائمة أولاً");
+        return;
+    }
 
-    const statusDiv = document.getElementById('sync-status');
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ Fetching data and updating statistics...";
+    statusDiv.innerText = "⏳ Fetching data from Azure DevOps...";
 
     try {
-        const basicAuth = btoa(`:${pat}`);
-        
-        // 1. جلب قائمة الـ IDs من الـ Query
-        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
-        const wiqlResponse = await fetch(wiqlUrl, {
-            headers: { 'Authorization': `Basic ${basicAuth}` }
-        });
-        
-        if (!wiqlResponse.ok) throw new Error("Failed to fetch query. Check your PAT or Permissions.");
-        const wiqlData = await wiqlResponse.json();
+        // 1. الحصول على التوكن والمعلومات الأساسية
+        const org = document.getElementById('azureOrg').value;
+        const project = document.getElementById('azureProject').value;
+        const queryId = document.getElementById('azureQueryId').value;
+        const pat = document.getElementById('azurePatInput').value;
 
-        const workItems = wiqlData.workItems || [];
-        if (workItems.length === 0) {
-            statusDiv.innerText = "⚠️ No work items found in this iteration.";
+        const authHeader = 'Basic ' + btoa("" + ":" + pat);
+
+        // 2. طلب قائمة الـ Work Items من الكويري
+        const queryUrl = `https://dev.azure.com/${org}/${project}/_apis/wit/wiql/${queryId}?api-version=6.0`;
+        const queryResponse = await fetch(queryUrl, { headers: { 'Authorization': authHeader } });
+        const queryData = await queryResponse.json();
+
+        if (!queryData.workItems || queryData.workItems.length === 0) {
+            statusDiv.innerText = "⚠️ No work items found in this query.";
             return;
         }
 
-        // استخراج الـ IDs (تحويلهم لنص مفصول بفاصلة)
-        // 1. تحديد مكان وجود البيانات بناءً على نوع الكويري
-let workItemsArray = [];
-
-if (queryData.workItems) {
-    // إذا كان كويري عادي (Flat List)
-    workItemsArray = queryData.workItems;
-} else if (queryData.workItemRelations) {
-    // إذا كان كويري روابط (Links) - وهذا هو حال الكويري الخاص بك
-    // نستخدم Set لمنع تكرار الـ ID إذا كان الـ Work Item مرتبطاً بأكثر من علاقة
-    const idSet = new Set();
-    queryData.workItemRelations.forEach(rel => {
-        if (rel.target && rel.target.id) {
-            idSet.add(rel.target.id);
-        }
-    });
-    // تحويل الـ Set إلى مصفوفة كائنات تشبه التنسيق العادي
-    workItemsArray = Array.from(idSet).map(id => ({ id: id }));
-}
-
-// 2. الآن نقوم بعمل الـ join للأرقام التي جمعناها
-const ids = workItemsArray.map(item => item.id).slice(0, 200).join(',');
-
-if (!ids) {
-    statusDiv.innerText = "⚠️ No work items found in this iteration.";
-    return;
-}
-
-        // 2. جلب التفاصيل الكاملة (الحقول) لكل Task لكي تتغير الأرقام
-        const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${ids}&$expand=all&api-version=6.0`;
-        const detailsResponse = await fetch(detailsUrl, {
-            headers: { 'Authorization': `Basic ${basicAuth}` }
-        });
+        const ids = queryData.workItems.map(item => item.id);
+        
+        // 3. جلب تفاصيل الـ Work Items (Batch Fetch)
+        const detailsUrl = `https://dev.azure.com/${org}/${project}/_apis/wit/workitems?ids=${ids.join(',')}&$expand=all&api-version=6.0`;
+        const detailsResponse = await fetch(detailsUrl, { headers: { 'Authorization': authHeader } });
         const detailsData = await detailsResponse.json();
 
-        // 3. تحديث مصفوفة rawData العالمية بالبيانات المفصلة
-       // الخطوة 3: تحويل البيانات لشكل يطابق الـ CSV تماماً
-rawData = detailsData.value.map(item => {
+        // 4. تحويل البيانات وتصفيتها بناءً على الـ Iteration المحددة في الـ UI
+       rawData = detailsData.value.map(item => {
     const f = item.fields;
+
     return {
         'ID': item.id,
-        'Work Item Type': f['System.WorkItemType'],
         'Title': f['System.Title'],
+        'Work Item Type': f['System.WorkItemType'],
         'State': f['System.State'],
-        'Assigned To': f['System.AssignedTo']?.displayName || f['System.AssignedTo'],
-        'Activity': f['Microsoft.VSTS.Common.Activity'],
-        'Original Estimation': f['NT.OriginalEstimation'],
-        'TimeSheet_DevActualTime': f['Custom.TimeSheet_DevActualTime'],
-        'TimeSheet_TestingActualTime': f['Custom.TimeSheet_TestingActualTime'],
+        
+        // معالجة المسميات المختلفة لضمان عمل الحسابات (Effort Variance)
+        'Original Estimation': parseFloat(f['NT.OriginalEstimation']) || 0,
+        'TimeSheet_DevActualTime': parseFloat(f['Custom.TimeSheet_DevActualTime']) || 0,
+        'TimeSheet_TestingActualTime': parseFloat(f['Custom.TimeSheet_TestingActualTime']) || 0, // استخدام Testing بدلاً من QA
+        
+        // التواريخ الهامة لحساب السايكل تايم (Cycle Time)
         'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'],
-        'Business Area': f['MyCompany.MyProcess.BusinessArea'],
-        'Iteration Path': f['System.IterationPath'],
+        'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'],
         'CustomResolvedDate': f['Custom.CustomResolvedDate'],
         'Tested Date': f['MyCompany.MyProcess.TestedDate'],
-        'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'],
-        'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'],
+        
+        // الحقول الإضافية
+        'Iteration Path': f['System.IterationPath'],
+        'Business Area': f['MyCompany.MyProcess.BusinessArea'],
         'Severity': f['Microsoft.VSTS.Common.Severity'],
-        'GenericBug': f['NT.GenericBug']
+        'Activity': f['Microsoft.VSTS.Common.Activity'],
+        
+        // التعامل مع الشخص المسؤول عن الـ Testing
+        'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'] || 'Unassigned',
+        
+        // التعامل مع Bug Classification
+        'GenericBug': f['NT.GenericBug'] || '',
+        
+        // حقل إضافي لتمييز مصدر البيانات (اختياري)
+        'Source': 'Azure'
     };
+}).filter(item => {
+    // تصفية البيانات لتطابق الـ Iteration المختارة في الواجهة فقط
+    return item['Iteration Path'] === selectedIterationPath;
 });
-        // 4. تشغيل المعالجة وتحديث الواجهة
-        processData();           // سيعيد حساب الـ Effort Variance والـ Rework Ratio
-        showView('iteration-view'); // سيقوم بعرض الجداول والرسوم البيانية المحدثة
+
+        // 5. التحقق مما إذا كان هناك بيانات بعد التصفية
+        if (rawData.length === 0) {
+            statusDiv.innerText = `⚠️ No work items found for iteration: ${selectedIterationPath}`;
+            return;
+        }
+
+        // 6. تشغيل المعالجة التلقائية (نفس منطق الـ CSV)
+        processData(); // ستقوم بحساب الـ Effort Variance والـ Rework Ratio
+
+        // 7. تحديث الواجهة
+        showView('iteration-view');
         
-        statusDiv.innerText = "✅ Statistics updated successfully!";
+        statusDiv.innerText = `✅ Success! Processed ${rawData.length} items.`;
         setTimeout(() => statusDiv.style.display = 'none', 3000);
-        
+
     } catch (e) {
         console.error("Azure Fetch Error:", e);
-        statusDiv.innerText = "❌ Error: " + e.message;
+        statusDiv.innerText = "❌ Error fetching data. Please check your credentials and Query ID.";
     }
 }
 
