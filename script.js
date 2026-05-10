@@ -1591,7 +1591,7 @@ async function fetchFromAzure() {
     const config = azureConfigs.find(c => c.id === queryId);
     if (!config || !azurePAT) return alert("Configuration or PAT missing!");
 
-    const btn = document.getElementById('btnFetchAzure');
+    const btn = document.getElementById('fetchAzureBtn');
     btn.disabled = true;
     btn.innerText = "Connecting...";
 
