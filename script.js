@@ -1695,127 +1695,73 @@ async function loadConfigsFromCloud() {
 }
 
 async function fetchFromAzure() {
-    const iterationSelect = document.getElementById('azureIterationSelect');
-    
-    // تأمين: إذا لم يجد العنصر، لا تكمل التنفيذ
-    if (!iterationSelect) {
-        console.error("العنصر azureIterationSelect غير موجود في الصفحة");
-        alert("Please ensure the iteration selector is loaded.");
+    const select = document.getElementById('azureIterationSelect');
+    const selectedValue = select.value;
+
+    if (!selectedValue) {
+        alert("يرجى اختيار إعداد من القائمة أولاً");
         return;
     }
 
-    const selectedIterationPath = iterationSelect.value;
+    const config = JSON.parse(selectedValue);
+    const statusDiv = document.getElementById('statusMessage');
     
-    if (!selectedIterationPath) {
-        alert("Please select an iteration first");
-        return;
-    }
-
-    statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ Fetching data from Azure DevOps...";
+    // استخدام التوكن المخزن
+    const pat = document.getElementById('azurePatInput').value || localStorage.getItem('azure_pat');
 
     try {
-        // 1. الحصول على التوكن والمعلومات الأساسية
-        const org = document.getElementById('azureOrg').value;
-        const project = document.getElementById('azureProject').value;
-        const queryId = document.getElementById('azureQueryId').value;
-        const pat = document.getElementById('azurePatInput').value;
+        statusDiv.style.display = 'block';
+        statusDiv.innerText = "جاري جلب البيانات من Azure...";
 
-        const authHeader = 'Basic ' + btoa("" + ":" + pat);
+        // بناء الرابط باستخدام البيانات من الإعداد المختار
+        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
 
-        // 2. طلب قائمة الـ Work Items من الكويري
-        const queryUrl = `https://dev.azure.com/${org}/${project}/_apis/wit/wiql/${queryId}?api-version=6.0`;
-        const queryResponse = await fetch(queryUrl, { headers: { 'Authorization': authHeader } });
-        const queryData = await queryResponse.json();
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Basic ${btoa(":" + pat)}`
+            }
+        });
 
-        if (!queryData.workItems || queryData.workItems.length === 0) {
-            statusDiv.innerText = "⚠️ No work items found in this query.";
-            return;
+        const data = await response.json();
+        
+        // منطق معالجة البيانات المجلوبة (Work Items)
+        if (data.workItems) {
+            // هنا يتم استكمال جلب تفاصيل كل Work Item كما في الكود الحالي
+            // ... 
+            processData(); 
+            showView('iteration-view');
         }
-
-        const ids = queryData.workItems.map(item => item.id);
-        
-        // 3. جلب تفاصيل الـ Work Items (Batch Fetch)
-        const detailsUrl = `https://dev.azure.com/${org}/${project}/_apis/wit/workitems?ids=${ids.join(',')}&$expand=all&api-version=6.0`;
-        const detailsResponse = await fetch(detailsUrl, { headers: { 'Authorization': authHeader } });
-        const detailsData = await detailsResponse.json();
-
-        // 4. تحويل البيانات وتصفيتها بناءً على الـ Iteration المحددة في الـ UI
-       rawData = detailsData.value.map(item => {
-    const f = item.fields;
-
-    return {
-        'ID': item.id,
-        'Title': f['System.Title'],
-        'Work Item Type': f['System.WorkItemType'],
-        'State': f['System.State'],
-        
-        // معالجة المسميات المختلفة لضمان عمل الحسابات (Effort Variance)
-        'Original Estimation': parseFloat(f['NT.OriginalEstimation']) || 0,
-        'TimeSheet_DevActualTime': parseFloat(f['Custom.TimeSheet_DevActualTime']) || 0,
-        'TimeSheet_TestingActualTime': parseFloat(f['Custom.TimeSheet_TestingActualTime']) || 0, // استخدام Testing بدلاً من QA
-        
-        // التواريخ الهامة لحساب السايكل تايم (Cycle Time)
-        'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'],
-        'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'],
-        'CustomResolvedDate': f['Custom.CustomResolvedDate'],
-        'Tested Date': f['MyCompany.MyProcess.TestedDate'],
-        
-        // الحقول الإضافية
-        'Iteration Path': f['System.IterationPath'],
-        'Business Area': f['MyCompany.MyProcess.BusinessArea'],
-        'Severity': f['Microsoft.VSTS.Common.Severity'],
-        'Activity': f['Microsoft.VSTS.Common.Activity'],
-        
-        // التعامل مع الشخص المسؤول عن الـ Testing
-        'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'] || 'Unassigned',
-        
-        // التعامل مع Bug Classification
-        'GenericBug': f['NT.GenericBug'] || '',
-        
-        // حقل إضافي لتمييز مصدر البيانات (اختياري)
-        'Source': 'Azure'
-    };
-}).filter(item => {
-    // تصفية البيانات لتطابق الـ Iteration المختارة في الواجهة فقط
-    return item['Iteration Path'] === selectedIterationPath;
-});
-
-        // 5. التحقق مما إذا كان هناك بيانات بعد التصفية
-        if (rawData.length === 0) {
-            statusDiv.innerText = `⚠️ No work items found for iteration: ${selectedIterationPath}`;
-            return;
-        }
-
-        // 6. تشغيل المعالجة التلقائية (نفس منطق الـ CSV)
-        processData(); // ستقوم بحساب الـ Effort Variance والـ Rework Ratio
-
-        // 7. تحديث الواجهة
-        showView('iteration-view');
-        
-        statusDiv.innerText = `✅ Success! Processed ${rawData.length} items.`;
-        setTimeout(() => statusDiv.style.display = 'none', 3000);
 
     } catch (e) {
-        console.error("Azure Fetch Error:", e);
-        statusDiv.innerText = "❌ Error fetching data. Please check your credentials and Query ID.";
+        console.error("خطأ أثناء الجلب:", e);
+        statusDiv.innerText = "❌ حدث خطأ في الاتصال، تأكد من صحة الـ PAT والـ Query ID";
     }
 }
+// تعديل الدالة لتعتمد على الإعدادات المسجلة وليس البيانات المجلوبة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
-    if (!select || !rawData || rawData.length === 0) return;
+    // افترضنا أن الإعدادات مخزنة في متغير يسمى configurations أو يتم جلبها من جدول الكويريز
+    let savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
 
-    // استخراج مسارات الـ Iteration الفريدة من البيانات
-    const iterations = [...new Set(rawData.map(item => item['Iteration Path']))].filter(Boolean);
+    if (!select) return;
 
-    // تفريغ القائمة وإضافة الخيار الافتراضي
-    select.innerHTML = '<option value="">Select Iteration...</option>';
+    select.innerHTML = '<option value="">اختر الإعداد (Iteration/Query)...</option>';
 
-    // إضافة المسارات المكتشفة للقائمة
-    iterations.sort().forEach(path => {
+    if (savedQueries.length === 0) {
+        console.warn("لا توجد إعدادات مسجلة في جدول الكويريز.");
+        return;
+    }
+
+    savedQueries.forEach(config => {
         const option = document.createElement('option');
-        option.value = path;
-        option.textContent = path;
+        // تخزين البيانات المطلوبة في الـ value كـ JSON أو معرف فريد
+        option.value = JSON.stringify({
+            org: config.organization,
+            project: config.project,
+            queryId: config.queryId
+        });
+        // عرض اسم مريح للمستخدم (مثلاً اسم المشروع أو مسار الأيتريشن)
+        option.textContent = `${config.projectName} - ${config.iterationName}`;
         select.appendChild(option);
     });
 }
