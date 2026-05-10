@@ -1694,3 +1694,22 @@ function renderAzureConfigsTable() {
         </tr>
     `).join('');
 }
+function deleteAzureConfig(index) {
+    if (confirm("هل أنت متأكد من رغبتك في حذف هذا الإعداد؟")) {
+        // جلب الإعدادات الحالية
+        let configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
+        
+        // حذف العنصر المطلوب بناءً على الترتيب (index)
+        configs.splice(index, 1);
+        
+        // حفظ القائمة المحدثة
+        localStorage.setItem('azure_configs', JSON.stringify(configs));
+        
+        // إعادة رسم الجدول لتحديث البيانات المعروضة
+        if (typeof renderAzureConfigsTable === 'function') {
+            renderAzureConfigsTable();
+        }
+        
+        alert("تم حذف الإعداد بنجاح");
+    }
+}
