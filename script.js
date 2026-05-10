@@ -1697,10 +1697,11 @@ async function fetchFromAzure() {
     const select = document.getElementById('azureConfigSelect');
     const configIndex = select.value;
     
+    // 1. التحقق من اختيار الـ Iteration
     if (configIndex === "") return alert("Please select an iteration first");
     
     const config = azureConfigs[configIndex];
-    const pat = localStorage.getItem('azure_pat'); // جلب التوكن المحفوظ
+    const pat = localStorage.getItem('azure_pat'); // جلب التوكن المحفوظ من الـ Local Storage
 
     if (!pat) return alert("Azure PAT is missing. Please log in again.");
 
@@ -1709,23 +1710,42 @@ async function fetchFromAzure() {
     statusDiv.innerText = "⏳ Fetching data from Azure DevOps...";
 
     try {
-        // تحويل الـ PAT إلى Base64 للمصادقة
+        // تحويل الـ PAT إلى Base64 للمصادقة مع Azure API
         const basicAuth = btoa(`:${pat}`);
         
-        // رابط الـ API الخاص بـ Azure DevOps (مثال لجلب الـ Work Items)
-        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql?api-version=6.0`;
+        // رابط الـ API الخاص بـ Azure DevOps لجلب الـ Work Items بناءً على الـ Query ID المخزن
+        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
         
-        // ملاحظة: ستحتاج هنا لتنفيذ طلب الـ WIQL الخاص بك لجلب البيانات
-        // بعد جلب البيانات، يتم إسنادها لـ rawData واستدعاء processData()
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${basicAuth}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) throw new Error(`Azure API error: ${response.statusText}`);
+
+        const data = await response.json();
         
-        // rawData = dataFromAzure;
-        // processData();
-        // showView('iteration-view');
+        /* ملاحظة: هنا يتم إسناد النتائج إلى rawData. 
+           يجب التأكد من أن شكل البيانات القادم من Azure يطابق الهيكل الذي تحتاجه دالة processData
+        */
         
-        statusDiv.innerText = "✅ Data fetched successfully!";
+        // rawData = data.workItems; // مثال لإسناد البيانات
+        
+        // 2. معالجة البيانات بعد جلبها (الخطوة المفقودة في الكود السابق)
+        processData(); 
+        
+        // 3. الانتقال إلى شاشة العرض لتحديث الجداول والرسوم البيانية
+        showView('iteration-view');
+        
+        statusDiv.innerText = "✅ Data fetched and processed successfully!";
+        setTimeout(() => statusDiv.style.display = 'none', 3000);
+        
     } catch (e) {
         console.error("Azure Fetch Error:", e);
-        statusDiv.innerText = "❌ Error fetching from Azure";
+        statusDiv.innerText = "❌ Error fetching from Azure: " + e.message;
     }
 }
 
