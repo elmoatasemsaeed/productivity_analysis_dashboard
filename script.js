@@ -57,16 +57,18 @@ async function attemptLogin() {
                 localStorage.setItem('saved_pass', pass);
             }
 
-            setupPermissions();
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('main-nav').style.display = 'flex';
-            await fetchDataFromGitHub();
+            function setupPermissions() {
+    const role = localStorage.getItem('app_role') || (currentUser ? currentUser.role : null);
+    const adminElements = document.querySelectorAll('.admin-only');
+    
+    adminElements.forEach(el => {
+        // تحويل الرتبة لنص صغير قبل المقارنة
+        if (role && role.toLowerCase() === 'admin') { 
+            el.style.setProperty('display', 'inline-block', 'important');
         } else {
-            alert("Invalid Credentials!");
+            el.style.setProperty('display', 'none', 'important');
         }
-    } catch (e) {
-        alert("Login failed: Could not connect to GitHub or invalid Token.");
-    }
+    });
 }
 function renderUsersTable() {
     const tbody = document.getElementById('usersListTable');
