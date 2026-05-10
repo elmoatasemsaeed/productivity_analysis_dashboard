@@ -107,12 +107,14 @@ async function addUser() {
 async function fetchUsersFromGitHub() {
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.usersPath}`, {
-            headers: { 'Authorization': `token ${githubToken}` }
+            headers: { 
+                'Authorization': `token ${githubToken}`,
+                'Accept': 'application/vnd.github.v3.raw'
+            }
         });
 
         if (res.ok) {
-            const data = await res.json();
-            const content = decodeURIComponent(escape(atob(data.content)));
+            const content = await res.text();
             users = JSON.parse(content);
             localStorage.setItem('app_users', JSON.stringify(users));
             renderUsersTable();
@@ -185,13 +187,15 @@ async function fetchDataFromGitHub() {
 
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.path}`, {
-            headers: { 'Authorization': `token ${githubToken}` }
+            headers: { 
+                'Authorization': `token ${githubToken}`,
+                'Accept': 'application/vnd.github.v3.raw' // هذا التعديل يسمح بجلب ملفات حتى 100 ميجا
+            }
         });
 
         if (res.ok) {
-            const data = await res.json();
-            // فك تشفير البيانات من Base64
-            const content = decodeURIComponent(escape(atob(data.content)));
+            // نستخدم res.text() بدلاً من res.json() لأن البيانات قادمة كـ string خام
+            const content = await res.text();
             rawData = JSON.parse(content);
             processData(); 
             showView('iteration-view');
