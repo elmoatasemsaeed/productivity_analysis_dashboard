@@ -261,18 +261,16 @@ function removeHoliday(date) {
 
 // Handle Upload
 // Handle Upload
+// البحث عن هذه الدالة في ملف script.js وتعديل السطر المشار إليه
 async function handleUpload() {
     const file = document.getElementById('csvFile').files[0];
     
-    // التعديل هنا: نستخدم المتغير githubToken الذي تم تعريفه عالمياً وتعبئته عند تسجيل الدخول
-    // بدلاً من سحب القيمة من عنصر HTML قد لا يكون موجوداً في هذه الشاشة
     if (!githubToken) {
-        return alert("GitHub Token is missing. Please log in again or ensure it's provided.");
+        return alert("GitHub Token is missing. Please log in again.");
     }
 
     if (!file) return alert("Please select a file first");
 
-    // تخزين التوكن الحالي في LocalStorage لضمان استمراريته
     localStorage.setItem('gh_token', githubToken); 
 
     Papa.parse(file, {
@@ -280,78 +278,92 @@ async function handleUpload() {
         skipEmptyLines: true,
         complete: async function(results) {
             rawData = results.data;
-            processData(); // الدالة الموجودة مسبقاً
-            await uploadToGitHub();
+            processData(); 
+            // التعديل هنا: تمرير rawData كمعامل للدالة
+            await uploadToGitHub(rawData); 
             showView('iteration-view');
         }
     });
 }
 
 async function uploadToGitHub(jsonData) {
+    if (!jsonData) {
+        console.error("No data provided to uploadToGitHub");
+        return;
+    }
+
     const statusDiv = document.getElementById('sync-status');
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ Uploading Large File (Git Data API)...";
+    statusDiv.innerText = "⏳ Syncing with GitHub...";
 
     try {
-        // 1. جلب بيانات أحدث "Commit" لمعرفة الـ SHA الخاص بالفرع الحالي
-        const branchRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/branches/main`, {
-            headers: { 'Authorization': `token ${githubToken}` }
-        });
+        const headers = { 
+            'Authorization': `token ${githubToken}`, 
+            'Content-Type': 'application/json' 
+        };
+
+        // 1. جلب الـ SHA الخاص بالفرع
+        const branchRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/branches/${GH_CONFIG.branch}`, { headers });
+        if (!branchRes.ok) throw new Error(`Branch fetch failed: ${branchRes.statusText}`);
         const branchData = await branchRes.json();
         const lastCommitSha = branchData.commit.sha;
 
-        // 2. إنشاء "Blob" جديد للمحتوى (هذا يتجاوز ليميت الـ 1 ميجا)
+        // 2. إنشاء الـ Blob
         const blobRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/blobs`, {
             method: 'POST',
-            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 content: JSON.stringify(jsonData, null, 2),
                 encoding: 'utf-8'
             })
         });
+        if (!blobRes.ok) throw new Error(`Blob creation failed: ${await blobRes.text()}`);
         const blobData = await blobRes.json();
 
-        // 3. إنشاء "Tree" يربط الملف بالـ Blob الجديد
+        // 3. إنشاء الـ Tree
         const treeRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/trees`, {
             method: 'POST',
-            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 base_tree: branchData.commit.commit.tree.sha,
                 tree: [{
                     path: GH_CONFIG.path,
-                    mode: '100644', // ملف عادي
+                    mode: '100644',
                     type: 'blob',
                     sha: blobData.sha
                 }]
             })
         });
+        if (!treeRes.ok) throw new Error(`Tree creation failed: ${await treeRes.text()}`);
         const treeData = await treeRes.json();
 
-        // 4. إنشاء "Commit" جديد
+        // 4. إنشاء الـ Commit
         const commitRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/commits`, {
             method: 'POST',
-            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
-                message: `Update data.json (Large File Support) - ${new Date().toLocaleString()}`,
+                message: `Auto-update data.json - ${new Date().toLocaleString()}`,
                 tree: treeData.sha,
                 parents: [lastCommitSha]
             })
         });
+        if (!commitRes.ok) throw new Error(`Commit failed: ${await commitRes.statusText}`);
         const commitData = await commitRes.json();
 
-        // 5. تحديث مرجع الفرع (Branch Reference) ليشير إلى الكوميت الجديد
-        await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/refs/heads/main`, {
+        // 5. تحديث مرجع الفرع
+        const refRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/refs/heads/${GH_CONFIG.branch}`, {
             method: 'PATCH',
-            headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ sha: commitData.sha })
         });
+        if (!refRes.ok) throw new Error(`Reference update failed: ${await refRes.statusText}`);
 
-        statusDiv.innerText = "✅ Large data file synced successfully!";
+        statusDiv.innerText = "✅ Synced Successfully!";
         setTimeout(() => statusDiv.style.display = 'none', 3000);
 
     } catch (e) {
-        console.error("Full Error Detail:", e);
-        statusDiv.innerText = "❌ Sync Failed: File too large or connection error.";
+        console.error("GitHub Sync Detailed Error:", e);
+        statusDiv.innerText = "❌ Sync Error: Check Console";
     }
 }
 
