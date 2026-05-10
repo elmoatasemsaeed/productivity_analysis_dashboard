@@ -130,17 +130,27 @@
         Connecting to GitHub...
     </div>
 
-    <nav id="main-nav" style="display: none;">
-        <button onclick="showView('iteration-view')">Iteration Summary</button>
-        <button onclick="showView('business-view')">Business Area View</button>
-        <button onclick="showView('team-view')">Team View</button>
-        <button onclick="showView('people-view')">People View</button>
-        <button onclick="showView('not-tested-view')">Not Tested</button>
-        <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
-        <button onclick="showView('holidays-view')" class="admin-only">Manage Holidays</button>
-        <button onclick="logout()" style="background: #e74c3c;">Logout</button>
-        <button id="fetchAzureBtn" onclick="fetchFromAzure()">Fetch from Azure</button>
-    </nav>
+<nav id="main-nav" style="display:none; gap: 10px; align-items: center; padding: 10px; background: #2c3e50; flex-wrap: wrap;">
+    <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
+    <button onclick="document.getElementById('csvFile').click()" class="admin-only">Upload CSV</button>
+    
+    <select id="azureQuerySelector" style="padding: 8px; border-radius: 4px;"></select>
+    <button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+    
+    <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
+
+    <button onclick="showView('iteration-view')">Iteration Summary</button>
+    <button onclick="showView('business-view')">Business Area View</button>
+    <button onclick="showView('team-view')">Team View</button>
+    <button onclick="showView('people-view')">People View</button>
+    <button onclick="showView('not-tested-view')">Not Tested</button>
+    
+    <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
+    <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
+    <button onclick="showView('holidays-view')" class="admin-only">Manage Holidays</button>
+    
+    <button onclick="logout()" style="background: #e74c3c; margin-left: auto;">Logout</button>
+</nav>
 
     <main id="content">
         <div id="welcome-msg" class="view">
