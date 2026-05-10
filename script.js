@@ -1693,59 +1693,64 @@ async function loadConfigsFromCloud() {
     }
 }
 
-async function fetchFromAzure() {
+async function fetchDataFromAzure() {
     const select = document.getElementById('azureConfigSelect');
     const configIndex = select.value;
     
-    // 1. التحقق من اختيار الـ Iteration
     if (configIndex === "") return alert("Please select an iteration first");
     
     const config = azureConfigs[configIndex];
-    const pat = localStorage.getItem('azure_pat'); // جلب التوكن المحفوظ من الـ Local Storage
+    const pat = localStorage.getItem('azure_pat');
 
     if (!pat) return alert("Azure PAT is missing. Please log in again.");
 
     const statusDiv = document.getElementById('sync-status');
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ Fetching data from Azure DevOps...";
+    statusDiv.innerText = "⏳ Fetching data and details from Azure...";
 
     try {
-        // تحويل الـ PAT إلى Base64 للمصادقة مع Azure API
         const basicAuth = btoa(`:${pat}`);
         
-        // رابط الـ API الخاص بـ Azure DevOps لجلب الـ Work Items بناءً على الـ Query ID المخزن
-        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Basic ${basicAuth}`,
-                'Content-Type': 'application/json'
-            }
+        // الخطوة 1: جلب الـ IDs من الكويري
+        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
+        const wiqlResponse = await fetch(wiqlUrl, {
+            headers: { 'Authorization': `Basic ${basicAuth}` }
         });
+        const wiqlData = await wiqlResponse.json();
 
-        if (!response.ok) throw new Error(`Azure API error: ${response.statusText}`);
+        // التأكد من وجود بيانات
+        const workItems = wiqlData.workItems || [];
+        if (workItems.length === 0) {
+            statusDiv.innerText = "⚠️ No data found in this iteration.";
+            return;
+        }
 
-        const data = await response.json();
+        // استخراج الـ IDs (بحد أقصى 200 لتجنب مشاكل الأداء)
+        const ids = workItems.map(item => item.id).slice(0, 200).join(',');
+
+        // الخطوة 2: جلب تفاصيل كل Work Item (هذا ما سيغير الأرقام)
+        const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${ids}&$expand=all&api-version=6.0`;
+        const detailsResponse = await fetch(detailsUrl, {
+            headers: { 'Authorization': `Basic ${basicAuth}` }
+        });
+        const detailsData = await detailsResponse.json();
+
+        // الخطوة 3: تحويل البيانات لشكل يفهمه النظام (rawData)
+        rawData = detailsData.value.map(item => ({
+            id: item.id,
+            fields: item.fields
+        }));
+
+        // الخطوة 4: تحديث الحسابات والواجهة
+        processData();           // سيقوم بحساب الـ Effort Variance والـ Rework بناءً على الـ fields الجديدة
+        showView('iteration-view'); // عرض الجداول المحدثة
         
-        /* ملاحظة: هنا يتم إسناد النتائج إلى rawData. 
-           يجب التأكد من أن شكل البيانات القادم من Azure يطابق الهيكل الذي تحتاجه دالة processData
-        */
-        
-        // rawData = data.workItems; // مثال لإسناد البيانات
-        
-        // 2. معالجة البيانات بعد جلبها (الخطوة المفقودة في الكود السابق)
-        processData(); 
-        
-        // 3. الانتقال إلى شاشة العرض لتحديث الجداول والرسوم البيانية
-        showView('iteration-view');
-        
-        statusDiv.innerText = "✅ Data fetched and processed successfully!";
+        statusDiv.innerText = "✅ Statistics updated successfully!";
         setTimeout(() => statusDiv.style.display = 'none', 3000);
         
     } catch (e) {
         console.error("Azure Fetch Error:", e);
-        statusDiv.innerText = "❌ Error fetching from Azure: " + e.message;
+        statusDiv.innerText = "❌ Error: " + e.message;
     }
 }
 
