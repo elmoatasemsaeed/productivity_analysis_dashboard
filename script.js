@@ -247,6 +247,9 @@ window.onload = async () => {
         currentUser = { name: savedUser, role: savedRole };
         setupPermissions();
         await fetchDataFromGitHub();
+
+    if (typeof renderAzureConfigsTable === 'function') {
+        renderAzureConfigsTable();
     }
 };
 
