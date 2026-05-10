@@ -194,6 +194,7 @@ async function fetchDataFromGitHub() {
             // نستخدم res.text() بدلاً من res.json() لأن البيانات قادمة كـ string خام
             const content = await res.text();
             rawData = JSON.parse(content);
+            updateIterationDropdown();
             processData(); 
             await loadConfigsFromCloud();
             showView('iteration-view');
@@ -1799,6 +1800,24 @@ async function fetchFromAzure() {
         console.error("Azure Fetch Error:", e);
         statusDiv.innerText = "❌ Error fetching data. Please check your credentials and Query ID.";
     }
+}
+function updateIterationDropdown() {
+    const select = document.getElementById('azureIterationSelect');
+    if (!select || !rawData || rawData.length === 0) return;
+
+    // استخراج مسارات الـ Iteration الفريدة من البيانات
+    const iterations = [...new Set(rawData.map(item => item['Iteration Path']))].filter(Boolean);
+
+    // تفريغ القائمة وإضافة الخيار الافتراضي
+    select.innerHTML = '<option value="">Select Iteration...</option>';
+
+    // إضافة المسارات المكتشفة للقائمة
+    iterations.sort().forEach(path => {
+        const option = document.createElement('option');
+        option.value = path;
+        option.textContent = path;
+        select.appendChild(option);
+    });
 }
 
 // تشغيل التحميل عند فتح الصفحة
