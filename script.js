@@ -1693,57 +1693,59 @@ async function loadConfigsFromCloud() {
     }
 }
 
-async function fetchDataFromAzure() {
+async function fetchFromAzure() {
     const select = document.getElementById('azureConfigSelect');
     const configIndex = select.value;
     
+    // التحقق من الاختيار
     if (configIndex === "") return alert("Please select an iteration first");
     
     const config = azureConfigs[configIndex];
-    const pat = localStorage.getItem('azure_pat');
+    const pat = localStorage.getItem('azure_pat'); 
 
     if (!pat) return alert("Azure PAT is missing. Please log in again.");
 
     const statusDiv = document.getElementById('sync-status');
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ Fetching data and details from Azure...";
+    statusDiv.innerText = "⏳ Fetching data and updating statistics...";
 
     try {
         const basicAuth = btoa(`:${pat}`);
         
-        // الخطوة 1: جلب الـ IDs من الكويري
+        // 1. جلب قائمة الـ IDs من الـ Query
         const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
         const wiqlResponse = await fetch(wiqlUrl, {
             headers: { 'Authorization': `Basic ${basicAuth}` }
         });
+        
+        if (!wiqlResponse.ok) throw new Error("Failed to fetch query. Check your PAT or Permissions.");
         const wiqlData = await wiqlResponse.json();
 
-        // التأكد من وجود بيانات
         const workItems = wiqlData.workItems || [];
         if (workItems.length === 0) {
-            statusDiv.innerText = "⚠️ No data found in this iteration.";
+            statusDiv.innerText = "⚠️ No work items found in this iteration.";
             return;
         }
 
-        // استخراج الـ IDs (بحد أقصى 200 لتجنب مشاكل الأداء)
-        const ids = workItems.map(item => item.id).slice(0, 200).join(',');
+        // استخراج الـ IDs (تحويلهم لنص مفصول بفاصلة)
+        const ids = workItems.map(item => item.id).join(',');
 
-        // الخطوة 2: جلب تفاصيل كل Work Item (هذا ما سيغير الأرقام)
+        // 2. جلب التفاصيل الكاملة (الحقول) لكل Task لكي تتغير الأرقام
         const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${ids}&$expand=all&api-version=6.0`;
         const detailsResponse = await fetch(detailsUrl, {
             headers: { 'Authorization': `Basic ${basicAuth}` }
         });
         const detailsData = await detailsResponse.json();
 
-        // الخطوة 3: تحويل البيانات لشكل يفهمه النظام (rawData)
+        // 3. تحديث مصفوفة rawData العالمية بالبيانات المفصلة
         rawData = detailsData.value.map(item => ({
             id: item.id,
             fields: item.fields
         }));
 
-        // الخطوة 4: تحديث الحسابات والواجهة
-        processData();           // سيقوم بحساب الـ Effort Variance والـ Rework بناءً على الـ fields الجديدة
-        showView('iteration-view'); // عرض الجداول المحدثة
+        // 4. تشغيل المعالجة وتحديث الواجهة
+        processData();           // سيعيد حساب الـ Effort Variance والـ Rework Ratio
+        showView('iteration-view'); // سيقوم بعرض الجداول والرسوم البيانية المحدثة
         
         statusDiv.innerText = "✅ Statistics updated successfully!";
         setTimeout(() => statusDiv.style.display = 'none', 3000);
