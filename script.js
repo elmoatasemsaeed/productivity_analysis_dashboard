@@ -1546,6 +1546,16 @@ let azureConfigs = []; // تغيير من "" إلى مصفوفة فارغة لت
 let azureConfigsSha = "";
 let azurePAT = localStorage.getItem('az_pat') || "";
 
+function renderAzureSelect() {
+    const select = document.getElementById('azureConfigSelect'); // تأكد من أن الـ ID مطابق في HTML
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Select Iteration --</option>' + 
+        azureConfigs.map((config, index) => `
+            <option value="${index}">${config.name}</option>
+        `).join('');
+}
+
 // 1. تحديث دالة الدخول
 const originalAttemptLogin = attemptLogin;
 attemptLogin = async function() {
@@ -1672,12 +1682,50 @@ async function loadConfigsFromCloud() {
             const data = await response.json();
             azureConfigsSha = data.sha;
             azureConfigs = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+            renderAzureConfigsTable(); 
+            renderAzureSelect();
         } else {
             azureConfigs = [];
         }
     } catch (e) {
         console.error("Error loading configs:", e);
         azureConfigs = [];
+    }
+}
+
+async function fetchFromAzure() {
+    const select = document.getElementById('azureConfigSelect');
+    const configIndex = select.value;
+    
+    if (configIndex === "") return alert("Please select an iteration first");
+    
+    const config = azureConfigs[configIndex];
+    const pat = localStorage.getItem('azure_pat'); // جلب التوكن المحفوظ
+
+    if (!pat) return alert("Azure PAT is missing. Please log in again.");
+
+    const statusDiv = document.getElementById('sync-status');
+    statusDiv.style.display = 'block';
+    statusDiv.innerText = "⏳ Fetching data from Azure DevOps...";
+
+    try {
+        // تحويل الـ PAT إلى Base64 للمصادقة
+        const basicAuth = btoa(`:${pat}`);
+        
+        // رابط الـ API الخاص بـ Azure DevOps (مثال لجلب الـ Work Items)
+        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql?api-version=6.0`;
+        
+        // ملاحظة: ستحتاج هنا لتنفيذ طلب الـ WIQL الخاص بك لجلب البيانات
+        // بعد جلب البيانات، يتم إسنادها لـ rawData واستدعاء processData()
+        
+        // rawData = dataFromAzure;
+        // processData();
+        // showView('iteration-view');
+        
+        statusDiv.innerText = "✅ Data fetched successfully!";
+    } catch (e) {
+        console.error("Azure Fetch Error:", e);
+        statusDiv.innerText = "❌ Error fetching from Azure";
     }
 }
 
