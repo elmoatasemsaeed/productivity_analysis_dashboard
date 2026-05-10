@@ -35,6 +35,7 @@ async function attemptLogin() {
     const user = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
     const token = document.getElementById('ghTokenInput').value;
+    const azurePat = document.getElementById('azurePatInput').value;
     const remember = document.getElementById('rememberMe').checked;
 
     if (!token) return alert("Please enter GitHub Token");
