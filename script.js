@@ -49,13 +49,13 @@ async function attemptLogin() {
         if (users[user] && users[user].pass === pass) {
             currentUser = users[user];
             
-            if (remember) {
-                localStorage.setItem('gh_token', token);
-                localStorage.setItem('azure_pat', azurePat);
-                localStorage.setItem('app_role', currentUser.role);
-                localStorage.setItem('saved_user', user);
-                localStorage.setItem('saved_pass', pass);
-            }
+         localStorage.setItem('azure_pat', azurePat); 
+if (remember) {
+    localStorage.setItem('gh_token', token);
+    localStorage.setItem('app_role', currentUser.role);
+    localStorage.setItem('saved_user', user);
+    localStorage.setItem('saved_pass', pass);
+}
 
             setupPermissions();
             document.getElementById('login-overlay').style.display = 'none';
