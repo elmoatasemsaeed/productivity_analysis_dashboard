@@ -38,34 +38,29 @@ async function attemptLogin() {
     const azurePat = document.getElementById('azurePatInput').value;
     const remember = document.getElementById('rememberMe').checked;
 
-    if (!token) return alert("Please enter GitHub Token");
-
-    githubToken = token; // تعيين التوكن مؤقتاً لمحاولة الجلب
-
-    try {
-        // محاولة جلب المستخدمين من GitHub أولاً
-        await fetchUsersFromGitHub(); 
-
-        if (users[user] && users[user].pass === pass) {
-            currentUser = users[user];
-            
-         localStorage.setItem('azure_pat', azurePat); 
-if (remember) {
-    localStorage.setItem('gh_token', token);
-    localStorage.setItem('app_role', currentUser.role);
-    localStorage.setItem('saved_user', user);
-    localStorage.setItem('saved_pass', pass);
-}
-
-            setupPermissions();
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('main-nav').style.display = 'flex';
-            await fetchDataFromGitHub();
+    if (users[user] && users[user].pass === pass) {
+        currentUser = { name: user, ...users[user] };
+        
+        // حفظ البيانات إذا تم اختيار "تذكرني"
+        if (remember) {
+            localStorage.setItem('gh_token', token);
+            localStorage.setItem('azure_pat', azurePat); // حفظ Azure PAT
+            localStorage.setItem('saved_user', user);
+            localStorage.setItem('saved_pass', pass);
+            localStorage.setItem('app_role', currentUser.role);
         } else {
-            alert("Invalid Credentials!");
+            // مسح البيانات القديمة إذا لم يتم اختيار "تذكرني"
+            localStorage.removeItem('gh_token');
+            localStorage.removeItem('azure_pat');
+            localStorage.removeItem('saved_user');
+            localStorage.removeItem('saved_pass');
         }
-    } catch (e) {
-        alert("Login failed: Could not connect to GitHub or invalid Token.");
+
+        githubToken = token; // تحديث المتغير العام بالتوكن الحالي
+        setupPermissions();
+        document.getElementById('login-overlay').style.display = 'none';
+    } else {
+        alert("Invalid credentials");
     }
 }
 function renderUsersTable() {
@@ -223,30 +218,35 @@ function logout() { // تم تصحيح الكلمة هنا
 }
 
 // تحديث window.onload
-window.onload = async function() {
-    if (githubToken) {
-        await fetchUsersFromGitHub();
-    }
-    
-    renderUsersTable();
-    renderHolidays();
-
-    const savedToken = localStorage.getItem('gh_token');
+window.onload = async () => {
+    // 1. استرجاع القيم من الـ localStorage
+    const savedUser = localStorage.getItem('saved_user');
+    const savedPass = localStorage.getItem('saved_pass');
+    const savedGhToken = localStorage.getItem('gh_token');
     const savedAzurePat = localStorage.getItem('azure_pat');
     const savedRole = localStorage.getItem('app_role');
-    const savedUser = localStorage.getItem('saved_user');
 
-    if (savedToken && savedRole) {
-        githubToken = savedToken; // استرجاع التوكن المحفوظ تلقائياً
+    // 2. تعبئة الحقول في واجهة المستخدم فوراً إذا كانت موجودة
+    if (savedUser) document.getElementById('loginUser').value = savedUser;
+    if (savedPass) document.getElementById('loginPass').value = savedPass;
+    if (savedGhToken) document.getElementById('ghTokenInput').value = savedGhToken;
+    if (savedAzurePat) document.getElementById('azurePatInput').value = savedAzurePat;
+
+    // 3. الدخول التلقائي إذا كانت البيانات الأساسية مكتملة
+    // استخدمنا savedGhToken بدلاً من savedToken لأنه الاسم الذي عرفناه فوق
+    if (savedGhToken && savedRole && savedUser) {
+        githubToken = savedGhToken; 
+        
+        // إخفاء شاشة الدخول وإظهار القائمة
         document.getElementById('login-overlay').style.display = 'none';
-        document.getElementById('main-nav').style.display = 'flex';
+        if (document.getElementById('main-nav')) {
+            document.getElementById('main-nav').style.display = 'flex';
+        }
+
+        // تحديث الصلاحيات وجلب البيانات
+        currentUser = { name: savedUser, role: savedRole };
         setupPermissions();
         await fetchDataFromGitHub();
-    } else if (savedUser) {
-        document.getElementById('loginUser').value = savedUser;
-        document.getElementById('loginPass').value = localStorage.getItem('saved_pass') || "";
-        document.getElementById('ghTokenInput').value = savedToken || "";
-        document.getElementById('azurePatInput').value = savedAzurePat || "";
     }
 };
 
