@@ -195,6 +195,7 @@ async function fetchDataFromGitHub() {
             const content = await res.text();
             rawData = JSON.parse(content);
             processData(); 
+            await loadConfigsFromCloud();
             showView('iteration-view');
             statusDiv.innerText = "✅ Data loaded from GitHub";
         } else {
@@ -248,7 +249,9 @@ window.onload = async () => {
         setupPermissions();
         await fetchDataFromGitHub();
     }
-};
+document.addEventListener('DOMContentLoaded', () => {
+    renderAzureConfigsTable();
+});
 
 function renderHolidays() {
     const list = document.getElementById('holidaysList');
@@ -285,6 +288,7 @@ async function handleUpload() {
             processData(); 
             // التعديل هنا: تمرير rawData كمعامل للدالة
             await uploadToGitHub(rawData); 
+            await loadConfigsFromCloud();
             showView('iteration-view');
         }
     });
@@ -1538,7 +1542,8 @@ function removeHoliday(date) {
 renderHolidays();
 
 // المتغيرات الجديدة
-let azureConfigs = JSON.parse(localStorage.getItem('az_configs') || "[]");
+let azureConfigs = []; 
+let azureConfigsSha = "";
 let azurePAT = localStorage.getItem('az_pat') || "";
 
 // 1. تحديث دالة الدخول لحفظ الـ PAT
@@ -1555,30 +1560,70 @@ attemptLogin = async function() {
 };
 
 // 2. إدارة الإعدادات
-function addAzureConfig() {
-    // تأكد من استخدام نفس الأسماء التي يتوقعها الجدول
+async function addAzureConfig() {
     const config = {
-        queryId: document.getElementById('azQueryId').value,     // غيّرنا id إلى queryId
-        accountName: document.getElementById('azQueryName').value, // غيّرنا name إلى accountName
+        queryId: document.getElementById('azQueryId').value,
+        accountName: document.getElementById('azQueryName').value,
         org: document.getElementById('azOrg').value,
         project: document.getElementById('azProject').value
     };
 
     if (!config.queryId || !config.accountName) return alert("Please fill all fields");
 
-    // تحديث المصفوفة العامة
-    azureConfigs.push(config);
+    try {
+        // 1. جلب البيانات الحالية من GitHub أولاً (لكي لا نمسح البيانات القديمة)
+        // سنفترض وجود دالة تجلب الملف أو نستخدم Fetch مباشرة
+        const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            headers: { 'Authorization': `token ${githubToken}` }
+        });
 
-    // الحفظ باستخدام المفتاح الصحيح 'azure_configs' (نفس الموجود في الـ render)
-    localStorage.setItem('azure_configs', JSON.stringify(azureConfigs));
+        let configs = [];
+        let sha = "";
 
-    // تحديث الواجهة
-    renderAzureDropdown();
-    renderAzureConfigsTable();
-    
-    // اختياري: مسح الحقول بعد الإضافة
-    document.getElementById('azQueryId').value = '';
-    document.getElementById('azQueryName').value = '';
+        if (response.ok) {
+            const data = await response.json();
+            configs = JSON.parse(atob(data.content)); // تحويل من Base64
+            sha = data.sha; // الـ SHA مطلوب للتحديث في GitHub
+        }
+
+        // 2. إضافة الإعداد الجديد للمصفوفة
+        configs.push(config);
+
+        // 3. رفع المصفوفة المحدثة إلى GitHub
+        const updateResponse = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${githubToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: "Update Azure Configs",
+                content: btoa(JSON.stringify(configs, null, 2)), // تحويل لـ Base64
+                sha: sha // إرسال الـ SHA القديم لتجنب التعارض
+            })
+        });
+
+        if (updateResponse.ok) {
+            alert("تم الحفظ في الكلاود بنجاح!");
+            
+            // تحديث المصفوفة العامة في الرام فقط لعرضها حالاً
+            azureConfigs = configs; 
+            
+            // تحديث الواجهة
+            renderAzureDropdown();
+            renderAzureConfigsTable();
+            
+            // مسح الحقول
+            document.getElementById('azQueryId').value = '';
+            document.getElementById('azQueryName').value = '';
+        } else {
+            throw new Error("Failed to update cloud storage");
+        }
+
+    } catch (error) {
+        console.error("Error saving to cloud:", error);
+        alert("حدث خطأ أثناء الحفظ في الكلاود: " + error.message);
+    }
 }
 
 function renderAzureDropdown() {
@@ -1667,6 +1712,7 @@ async function fetchFromAzure() {
         processData();
         await uploadToGitHub(rawData); // مزامنة مع GitHub كما يفعل الـ CSV
         alert(`Successfully fetched ${rawData.length} items from Azure!`);
+        await loadConfigsFromCloud();
         showView('iteration-view');
 
     } catch (err) {
@@ -1679,12 +1725,12 @@ async function fetchFromAzure() {
 };
 
 function renderAzureConfigsTable() {
-    // هذه الدالة وظيفتها تحديث الجدول الذي يعرض إعدادات Azure
-    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من وجود هذا الـ ID في الـ HTML
+    const tbody = document.getElementById('azureConfigsTableBody');
     if (!tbody) return;
 
-    // جلب الإعدادات من localStorage (بفرض أنك تحفظها هناك)
-    const configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
+    // بدلاً من localStorage، نستخدم المصفوفة العامة azureConfigs 
+    // (التي يجب شحنها ببيانات من GitHub عند بداية فتح التطبيق)
+    const configs = azureConfigs || []; 
     
     tbody.innerHTML = configs.map((config, index) => `
         <tr>
@@ -1696,6 +1742,7 @@ function renderAzureConfigsTable() {
         </tr>
     `).join('');
 }
+    
 function deleteAzureConfig(index) {
     if (confirm("هل أنت متأكد من رغبتك في حذف هذا الإعداد؟")) {
         // جلب الإعدادات الحالية
@@ -1715,3 +1762,31 @@ function deleteAzureConfig(index) {
         alert("تم حذف الإعداد بنجاح");
     }
 }
+    async function loadConfigsFromCloud() {
+    if (!githubToken) return;
+    try {
+        const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+            headers: { 'Authorization': `token ${githubToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            azureConfigsSha = data.sha; // حفظ الـ sha للتحديث لاحقاً
+            azureConfigs = JSON.parse(atob(data.content));
+            console.log("Configs loaded from cloud:", azureConfigs);
+        } else {
+            azureConfigs = [];
+        }
+    } catch (e) {
+        console.error("Error loading cloud configs:", e);
+        azureConfigs = [];
+    }
+    // تحديث الواجهة فوراً بعد الجلب
+    if (typeof renderAzureConfigsTable === 'function') renderAzureConfigsTable();
+    if (typeof renderAzureDropdown === 'function') renderAzureDropdown();
+}
+    window.addEventListener('load', async () => {
+    if (githubToken) {
+        await loadConfigsFromCloud();
+    }
+});
