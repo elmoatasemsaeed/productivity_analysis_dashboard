@@ -1679,11 +1679,9 @@ async function fetchFromAzure() {
 };
 
 function renderAzureConfigsTable() {
-    // هذه الدالة وظيفتها تحديث الجدول الذي يعرض إعدادات Azure
-    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من وجود هذا الـ ID في الـ HTML
+    const tbody = document.getElementById('azureConfigsTableBody'); 
     if (!tbody) return;
 
-    // جلب الإعدادات من localStorage (بفرض أنك تحفظها هناك)
     const configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
     
     tbody.innerHTML = configs.map((config, index) => `
@@ -1691,8 +1689,18 @@ function renderAzureConfigsTable() {
             <td>${config.accountName || 'N/A'}</td>
             <td>${config.queryId || 'N/A'}</td>
             <td>
-                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; color:white; border:none; padding:5px; border-radius:3px;">حذف</button>
+                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; padding:5px 10px; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
             </td>
         </tr>
     `).join('');
 }
+
+function deleteAzureConfig(index) {
+    let configs = JSON.parse(localStorage.getItem('azure_configs') || "[]");
+    configs.splice(index, 1);
+    localStorage.setItem('azure_configs', JSON.stringify(configs));
+    renderAzureConfigsTable();
+}
+
+// تأكد من استدعاء التحديث عند تحميل الصفحة
+renderAzureConfigsTable();
