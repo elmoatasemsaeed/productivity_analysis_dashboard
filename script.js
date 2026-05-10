@@ -352,10 +352,13 @@ async function uploadToGitHub(jsonData) {
 
         // 5. تحديث مرجع الفرع
         const refRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/git/refs/heads/${GH_CONFIG.branch}`, {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({ sha: commitData.sha })
-        });
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ 
+        sha: commitData.sha,
+        force: true // هذا السطر يحل مشكلة الـ 422 في تحديث المراجع
+    })
+});
         if (!refRes.ok) throw new Error(`Reference update failed: ${await refRes.statusText}`);
 
         statusDiv.innerText = "✅ Synced Successfully!";
