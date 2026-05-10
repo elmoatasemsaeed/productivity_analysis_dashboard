@@ -49,19 +49,55 @@
 </head>
 <body>
 
- <div id="login-overlay">
+<div id="login-overlay">
     <div class="login-card">
-        <h2 style="text-align: center; color: #2c3e50; margin-top: 0;">System Login</h2>
+        <h2 style="text-align: center;">System Login</h2>
         <input type="text" id="loginUser" placeholder="Username">
         <input type="password" id="loginPass" placeholder="Password">
-       <input type="password" id="ghTokenInput" placeholder="GitHub Token">
+        <input type="password" id="ghTokenInput" placeholder="GitHub Token">
+        <input type="password" id="azurePatInput" placeholder="Azure DevOps PAT">
+        
         <label style="font-size: 0.8em; color: #555;">
-            <input type="checkbox" id="rememberMe" style="width: auto; margin-bottom: 20px;"> Remember Me
+            <input type="checkbox" id="rememberMe"> Remember Me
         </label>
-        <button onclick="attemptLogin()">Login & Sync Data</button>
+        <button onclick="attemptLogin()">Login</button>
     </div>
 </div>
 
+<nav id="main-nav" style="display:none; gap: 10px; align-items: center; padding: 10px; background: #2c3e50;">
+    <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
+    <button onclick="document.getElementById('csvFile').click()">Upload CSV</button>
+    
+    <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
+    <select id="azureQuerySelector" style="padding: 8px; border-radius: 4px;"></select>
+    <button onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+    
+    <button onclick="showView('iteration-view')">Iteration Summary</button>
+    <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
+    <button onclick="logout()" style="background: #e74c3c;">Logout</button>
+</nav>
+
+<div id="azure-settings-view" class="view" style="display:none; padding: 20px;">
+    <h3>Manage Azure DevOps Queries</h3>
+    <div class="card" style="padding: 20px; max-width: 600px;">
+        <input type="text" id="azOrg" placeholder="Organization (e.g. MyOrg)">
+        <input type="text" id="azProject" placeholder="Project Name">
+        <input type="text" id="azQueryId" placeholder="Query ID (GUID)">
+        <input type="text" id="azQueryName" placeholder="Friendly Name (e.g. Sprint 25)">
+        <button onclick="saveAzureQuery()" style="margin-top: 10px;">Add Query</button>
+    </div>
+    <table style="margin-top: 20px; width: 100%;">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Org/Project</th>
+                <th>Query ID</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="azureQueriesTable"></tbody>
+    </table>
+</div>
 
 <div id="users-view" class="view" style="display:none;">
     <h3>User Management</h3>
