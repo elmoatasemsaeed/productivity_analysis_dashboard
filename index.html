@@ -8,7 +8,7 @@
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        /* تنسيقات إضافية لشاشة تسجيل الدخول */
+        /* تنسيقات شاشة تسجيل الدخول */
         #login-overlay {
             position: fixed;
             inset: 0;
@@ -45,112 +45,57 @@
             cursor: pointer;
         }
         .login-card button:hover { background: #2980b9; }
-        .admin-only { display: none; } /* مخفي افتراضياً ويظهر للأدمن فقط */
+        
+        /* إخفاء عناصر الإدارة افتراضياً */
+        .admin-only { display: none; } 
     </style>
 </head>
 <body>
 
-<div id="login-overlay">
-    <div class="login-card">
-        <h2 style="text-align: center;">System Login</h2>
-        <input type="text" id="loginUser" placeholder="Username">
-        <input type="password" id="loginPass" placeholder="Password">
-        <input type="password" id="ghTokenInput" placeholder="GitHub Token">
-        <input type="password" id="azurePatInput" placeholder="Azure DevOps PAT">
-        
-        <label style="font-size: 0.8em; color: #555;">
-            <input type="checkbox" id="rememberMe"> Remember Me
-        </label>
-        <button onclick="attemptLogin()">Login</button>
+    <div id="login-overlay">
+        <div class="login-card">
+            <h2 style="text-align: center;">System Login</h2>
+            <input type="text" id="loginUser" placeholder="Username">
+            <input type="password" id="loginPass" placeholder="Password">
+            <input type="password" id="ghTokenInput" placeholder="GitHub Token">
+            <input type="password" id="azurePatInput" placeholder="Azure DevOps PAT">
+            
+            <label style="font-size: 0.8em; color: #555;">
+                <input type="checkbox" id="rememberMe"> Remember Me
+            </label>
+            <button onclick="attemptLogin()">Login</button>
+        </div>
     </div>
-</div>
 
-<nav id="main-nav" style="display:none; gap: 10px; align-items: center; padding: 10px; background: #2c3e50;">
-    <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
-    <button onclick="document.getElementById('csvFile').click()">Upload CSV</button>
-    
-    <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
-    <select id="azureQuerySelector" style="padding: 8px; border-radius: 4px;"></select>
-    <button id="azureFetchBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
-    
-    <button onclick="showView('iteration-view')">Iteration Summary</button>
-    <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
-    <button onclick="logout()" style="background: #e74c3c;">Logout</button>
-</nav>
-
-<div id="azure-settings-view" class="view" style="display:none; padding: 20px;">
-    <h3>Manage Azure DevOps Queries</h3>
-    <div class="card" style="padding: 20px; max-width: 600px;">
-        <input type="text" id="azOrg" placeholder="Organization (e.g. MyOrg)">
-        <input type="text" id="azProject" placeholder="Project Name">
-        <input type="text" id="azQueryId" placeholder="Query ID (GUID)">
-        <input type="text" id="azQueryName" placeholder="Friendly Name (e.g. Sprint 25)">
-        <button onclick="addAzureConfig()" style="margin-top: 10px;">Add Query</button>
-    </div>
-    <table style="margin-top: 20px; width: 100%;">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Org/Project</th>
-                <th>Query ID</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="azureConfigsTableBody"></tbody>
-    </table>
-</div>
-
-<div id="users-view" class="view" style="display:none;">
-    <h3>User Management</h3>
-    <div class="card">
-        <input type="text" id="newUserName" placeholder="Username">
-        <input type="text" id="newUserPass" placeholder="Password">
-        <select id="newUserRole">
-            <option value="viewer">Viewer</option>
-            <option value="admin">Admin</option>
-        </select>
-        <button onclick="addUser()">Add/Update User</button>
-    </div>
-    <table style="margin-top: 20px;">
-        <thead>
-            <tr><th>Username</th><th>Password</th><th>Role</th><th>Action</th></tr>
-        </thead>
-        <tbody id="usersListTable"></tbody>
-    </table>
-</div>
     <header>
         <h1>Productivity Analysis Dashboard</h1>
-        <div class="upload-section admin-only" id="admin-upload-controls">
-            <input type="file" id="csvFile" accept=".csv">
-            <button onclick="handleUpload()">Upload & Sync to GitHub</button>
-        </div>
     </header>
+
+    <nav id="main-nav" style="display:none; gap: 10px; align-items: center; padding: 10px; background: #2c3e50; flex-wrap: wrap;">
+        <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
+        <button onclick="document.getElementById('csvFile').click()" class="admin-only">Upload CSV</button>
+        
+        <select id="azureQuerySelector" style="padding: 8px; border-radius: 4px;"></select>
+        <button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+        
+        <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
+
+        <button onclick="showView('iteration-view')">Iteration Summary</button>
+        <button onclick="showView('business-view')">Business Area View</button>
+        <button onclick="showView('team-view')">Team View</button>
+        <button onclick="showView('people-view')">People View</button>
+        <button onclick="showView('not-tested-view')">Not Tested</button>
+        
+        <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
+        <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
+        <button onclick="showView('holidays-view')" class="admin-only">Manage Holidays</button>
+        
+        <button onclick="logout()" style="background: #e74c3c; margin-left: auto;">Logout</button>
+    </nav>
 
     <div id="sync-status" style="text-align: center; padding: 10px; background: #e8f4fd; display: none;">
         Connecting to GitHub...
     </div>
-
-<nav id="main-nav" style="display:none; gap: 10px; align-items: center; padding: 10px; background: #2c3e50; flex-wrap: wrap;">
-    <input type="file" id="csvFile" accept=".csv" style="display:none;" onchange="handleUpload()">
-    <button onclick="document.getElementById('csvFile').click()" class="admin-only">Upload CSV</button>
-    
-    <select id="azureQuerySelector" style="padding: 8px; border-radius: 4px;"></select>
-    <button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
-    
-    <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
-
-    <button onclick="showView('iteration-view')">Iteration Summary</button>
-    <button onclick="showView('business-view')">Business Area View</button>
-    <button onclick="showView('team-view')">Team View</button>
-    <button onclick="showView('people-view')">People View</button>
-    <button onclick="showView('not-tested-view')">Not Tested</button>
-    
-    <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
-    <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
-    <button onclick="showView('holidays-view')" class="admin-only">Manage Holidays</button>
-    
-    <button onclick="logout()" style="background: #e74c3c; margin-left: auto;">Logout</button>
-</nav>
 
     <main id="content">
         <div id="welcome-msg" class="view">
@@ -163,18 +108,60 @@
         <div id="people-view" class="view" style="display:none;"></div>
         <div id="not-tested-view" class="view" style="display:none;"></div>
         
-        <div id="holidays-view" class="view" style="display:none;">
+        <div id="azure-settings-view" class="view" style="display:none; padding: 20px;">
+            <h3>Manage Azure DevOps Queries</h3>
+            <div class="card" style="padding: 20px; max-width: 600px; background: #f9f9f9; border-radius: 8px;">
+                <input type="text" id="azOrg" placeholder="Organization (e.g. MyOrg)" style="width:100%; padding:8px; margin-bottom:10px;">
+                <input type="text" id="azProject" placeholder="Project Name" style="width:100%; padding:8px; margin-bottom:10px;">
+                <input type="text" id="azQueryId" placeholder="Query ID (GUID)" style="width:100%; padding:8px; margin-bottom:10px;">
+                <input type="text" id="azQueryName" placeholder="Friendly Name (e.g. Sprint 25)" style="width:100%; padding:8px; margin-bottom:10px;">
+                <button onclick="addAzureConfig()">Add Query</button>
+            </div>
+            <table style="margin-top: 20px; width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background:#eee;">
+                        <th>Name</th>
+                        <th>Org/Project</th>
+                        <th>Query ID</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="azureConfigsTableBody"></tbody>
+            </table>
+        </div>
+
+        <div id="users-view" class="view" style="display:none; padding: 20px;">
+            <h3>User Management</h3>
+            <div class="card" style="padding: 20px; max-width: 600px; background: #f9f9f9; border-radius: 8px;">
+                <input type="text" id="newUserName" placeholder="Username" style="width:100%; padding:8px; margin-bottom:10px;">
+                <input type="text" id="newUserPass" placeholder="Password" style="width:100%; padding:8px; margin-bottom:10px;">
+                <select id="newUserRole" style="width:100%; padding:8px; margin-bottom:10px;">
+                    <option value="viewer">Viewer</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button onclick="addUser()">Add/Update User</button>
+            </div>
+            <table style="margin-top: 20px; width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background:#eee;">
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="usersListTable"></tbody>
+            </table>
+        </div>
+
+        <div id="holidays-view" class="view" style="display:none; padding: 20px;">
             <h3>Define Public Holidays</h3>
-            <input type="date" id="holidayPicker">
+            <input type="date" id="holidayPicker" style="padding:8px;">
             <button onclick="addHoliday()">Add Holiday</button>
-            <ul id="holidaysList"></ul>
+            <ul id="holidaysList" style="margin-top:15px;"></ul>
         </div>
     </main>
 
     <script src="script.js"></script>
 </body>
 </html>
-
-
-
-
