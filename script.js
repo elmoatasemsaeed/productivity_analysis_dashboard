@@ -1728,7 +1728,32 @@ async function fetchFromAzure() {
         }
 
         // استخراج الـ IDs (تحويلهم لنص مفصول بفاصلة)
-        const ids = workItems.map(item => item.id).join(',');
+        // 1. تحديد مكان وجود البيانات بناءً على نوع الكويري
+let workItemsArray = [];
+
+if (queryData.workItems) {
+    // إذا كان كويري عادي (Flat List)
+    workItemsArray = queryData.workItems;
+} else if (queryData.workItemRelations) {
+    // إذا كان كويري روابط (Links) - وهذا هو حال الكويري الخاص بك
+    // نستخدم Set لمنع تكرار الـ ID إذا كان الـ Work Item مرتبطاً بأكثر من علاقة
+    const idSet = new Set();
+    queryData.workItemRelations.forEach(rel => {
+        if (rel.target && rel.target.id) {
+            idSet.add(rel.target.id);
+        }
+    });
+    // تحويل الـ Set إلى مصفوفة كائنات تشبه التنسيق العادي
+    workItemsArray = Array.from(idSet).map(id => ({ id: id }));
+}
+
+// 2. الآن نقوم بعمل الـ join للأرقام التي جمعناها
+const ids = workItemsArray.map(item => item.id).slice(0, 200).join(',');
+
+if (!ids) {
+    statusDiv.innerText = "⚠️ No work items found in this iteration.";
+    return;
+}
 
         // 2. جلب التفاصيل الكاملة (الحقول) لكل Task لكي تتغير الأرقام
         const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${ids}&$expand=all&api-version=6.0`;
@@ -1738,27 +1763,30 @@ async function fetchFromAzure() {
         const detailsData = await detailsResponse.json();
 
         // 3. تحديث مصفوفة rawData العالمية بالبيانات المفصلة
-       rawData = detailsData.value.map(item => ({
-    'ID': item.id,
-    'Work Item Type': item.fields['System.WorkItemType'],
-    'Title': item.fields['System.Title'],
-    'State': item.fields['System.State'],
-    'Assigned To': item.fields['System.AssignedTo']?.displayName || item.fields['System.AssignedTo'],
-    'Activity': item.fields['Microsoft.VSTS.Common.Activity'],
-    'Original Estimation': item.fields['NT.OriginalEstimation'],
-    'TimeSheet_DevActualTime': item.fields['Custom.TimeSheet_DevActualTime'],
-    'TimeSheet_TestingActualTime': item.fields['Custom.TimeSheet_TestingActualTime'],
-    'Activated Date': item.fields['Microsoft.VSTS.Common.ActivatedDate'],
-    'Business Area': item.fields['MyCompany.MyProcess.BusinessArea'],
-    'Iteration Path': item.fields['System.IterationPath'],
-    'CustomResolvedDate': item.fields['Custom.CustomResolvedDate'],
-    'Tested Date': item.fields['MyCompany.MyProcess.TestedDate'],
-    'Assigned To Tester': item.fields['MyCompany.MyProcess.Tester']?.displayName || item.fields['MyCompany.MyProcess.Tester'],
-    'Resolved Date': item.fields['Microsoft.VSTS.Common.ResolvedDate'],
-    'Severity': item.fields['Microsoft.VSTS.Common.Severity'],
-    'GenericBug': item.fields['NT.GenericBug']
-}));
-
+       // الخطوة 3: تحويل البيانات لشكل يطابق الـ CSV تماماً
+rawData = detailsData.value.map(item => {
+    const f = item.fields;
+    return {
+        'ID': item.id,
+        'Work Item Type': f['System.WorkItemType'],
+        'Title': f['System.Title'],
+        'State': f['System.State'],
+        'Assigned To': f['System.AssignedTo']?.displayName || f['System.AssignedTo'],
+        'Activity': f['Microsoft.VSTS.Common.Activity'],
+        'Original Estimation': f['NT.OriginalEstimation'],
+        'TimeSheet_DevActualTime': f['Custom.TimeSheet_DevActualTime'],
+        'TimeSheet_TestingActualTime': f['Custom.TimeSheet_TestingActualTime'],
+        'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'],
+        'Business Area': f['MyCompany.MyProcess.BusinessArea'],
+        'Iteration Path': f['System.IterationPath'],
+        'CustomResolvedDate': f['Custom.CustomResolvedDate'],
+        'Tested Date': f['MyCompany.MyProcess.TestedDate'],
+        'Assigned To Tester': f['MyCompany.MyProcess.Tester']?.displayName || f['MyCompany.MyProcess.Tester'],
+        'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'],
+        'Severity': f['Microsoft.VSTS.Common.Severity'],
+        'GenericBug': f['NT.GenericBug']
+    };
+});
         // 4. تشغيل المعالجة وتحديث الواجهة
         processData();           // سيعيد حساب الـ Effort Variance والـ Rework Ratio
         showView('iteration-view'); // سيقوم بعرض الجداول والرسوم البيانية المحدثة
