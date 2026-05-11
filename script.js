@@ -1796,6 +1796,7 @@ function mapAzureFields(item) {
 // استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
+    // تأكد من أن البيانات القادمة من الريبو يتم حفظها في هذا المفتاح 'azure_queries'
     const savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
 
     if (!select) return;
@@ -1803,12 +1804,14 @@ function updateIterationDropdown() {
 
     savedQueries.forEach(config => {
         const option = document.createElement('option');
-        // تخزين البيانات كـ JSON string لمنع الـ undefined
+        
+        // تعديل المسميات لتطابق ملف azure_configs.json (id و org)
         option.value = JSON.stringify({
-            org: config.organization,
+            org: config.org,        // تم التعديل من organization إلى org
             project: config.project,
-            queryId: config.queryId
+            queryId: config.id      // تم التعديل من queryId إلى id
         });
+        
         option.textContent = config.name || `${config.project} - Query`;
         select.appendChild(option);
     });
