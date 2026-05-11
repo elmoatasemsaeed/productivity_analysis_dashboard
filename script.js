@@ -1796,20 +1796,33 @@ function mapAzureFields(item) {
 // استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
-    const savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
-
     if (!select) return;
-    select.innerHTML = '<option value="">-- اختر الكويري --</option>';
+
+    // التأكد من استخدام نفس المفتاح الذي يستخدمه الجدول للتخزين
+    let savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
+
+    select.innerHTML = '<option value="">اختر الإعداد (Iteration/Query)...</option>';
+
+    if (savedQueries.length === 0) {
+        console.warn("لا توجد كويريز مسجلة.");
+        return;
+    }
 
     savedQueries.forEach(config => {
         const option = document.createElement('option');
-        // تخزين البيانات كـ JSON string لمنع الـ undefined
+        
+        // تحويل الكائن لنص JSON لتسهيل استرجاعه في دالة الجلب
         option.value = JSON.stringify({
             org: config.organization,
-            project: config.project,
+            project: config.project, // تأكد أنها 'project' كما في الجدول
             queryId: config.queryId
         });
-        option.textContent = config.name || `${config.project} - Query`;
+
+        // عرض الاسم والبروجكت (تأكد من تطابق المسميات مع أعمدة الجدول)
+        const displayName = config.name || "بدون اسم";
+        const projectName = config.project || "مشروع غير محدد";
+        
+        option.textContent = `${projectName} - ${displayName}`;
         select.appendChild(option);
     });
 }
