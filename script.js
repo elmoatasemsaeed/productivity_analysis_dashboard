@@ -1696,91 +1696,78 @@ async function loadConfigsFromCloud() {
 
 
 async function fetchFromAzure() {
-    const statusDiv = document.getElementById('sync-status');
     const select = document.getElementById('azureIterationSelect');
-    if (!select.value) return alert("الرجاء اختيار الإعداد أولاً");
+    if (!select || select.value === "") return alert("يرجى اختيار الكويري المناسب");
 
+    // استخراج الإعدادات من القيمة المختارة في الـ Dropdown
     const config = JSON.parse(select.value);
     const pat = localStorage.getItem('azure_pat');
-    if (!pat) return alert("الرجاء إدخال PAT في شاشة الدخول");
+    const statusDiv = document.getElementById('sync-status');
+
+    if (!pat) return alert("يرجى إدخال الـ PAT في شاشة الدخول أولاً");
 
     statusDiv.style.display = 'block';
     statusDiv.innerText = "⏳ جاري الاتصال بـ Azure DevOps...";
 
-    const authHeader = { 'Authorization': 'Basic ' + btoa(':' + pat) };
-
     try {
-        // 1. تنفيذ الكويري لجلب الروابط
-        const queryUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql?api-version=6.0`;
-        const queryRes = await fetch(queryUrl, {
-            method: 'POST',
-            headers: { ...authHeader, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: document.getElementById('azureQueryInput').value || "" }) // أو استخدام الـ ID المسجل
-        });
+        const authHeader = { 
+            'Authorization': 'Basic ' + btoa(':' + pat),
+            'Content-Type': 'application/json'
+        };
 
-        const queryData = await queryRes.json();
+        // 1. جلب قائمة الـ IDs باستخدام الـ WIQL API (الرسمي الذي يسمح بـ CORS)
+        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
+        const wiqlRes = await fetch(wiqlUrl, { headers: authHeader });
         
-        // استخراج كافة الـ IDs الفريدة من الروابط (Source and Target)
-        let idsSet = new Set();
-        if (queryData.workItemRelations) {
-            queryData.workItemRelations.forEach(rel => {
-                if (rel.source) idsSet.add(rel.source.id);
-                if (rel.target) idsSet.add(rel.target.id);
-            });
-        } else if (queryData.workItems) {
-            queryData.workItems.forEach(item => idsSet.add(item.id));
+        if (!wiqlRes.ok) throw new Error(`خطأ في الوصول للكويري: ${wiqlRes.status}`);
+        
+        const wiqlData = await wiqlRes.json();
+        
+        let workItemIds = [];
+        // التعامل مع الكويري سواء كان روابط (Links) أو قائمة مسطحة (Flat)
+        if (wiqlData.workItemRelations) {
+            workItemIds = wiqlData.workItemRelations
+                .map(rel => rel.target ? rel.target.id : null)
+                .filter(id => id !== null);
+        } else {
+            workItemIds = wiqlData.workItems.map(wi => wi.id);
         }
 
-        const workItemIds = Array.from(idsSet);
         if (workItemIds.length === 0) {
-            statusDiv.innerText = "⚠️ لا توجد نتائج للكويري";
+            statusDiv.innerText = "⚠️ الكويري لم يرجع أي نتائج.";
             return;
         }
 
-        // 2. جلب التفاصيل بنظام الدفعات (200 عنصر لكل دفعة)
+        statusDiv.innerText = `⏳ تم العثور على ${workItemIds.length} عنصر، جاري جلب التفاصيل...`;
+
+        // 2. جلب التفاصيل بنظام الدفعات (Batching) - كل دفعة 200 عنصر
         let allItemsDetails = [];
         for (let i = 0; i < workItemIds.length; i += 200) {
             const chunk = workItemIds.slice(i, i + 200).join(',');
             const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${chunk}&$expand=all&api-version=6.0`;
+            
             const detailsRes = await fetch(detailsUrl, { headers: authHeader });
             const detailsData = await detailsRes.json();
             allItemsDetails = allItemsDetails.concat(detailsData.value);
+            
+            statusDiv.innerText = `⏳ جاري التحميل: ${allItemsDetails.length} / ${workItemIds.length}`;
         }
 
-        // 3. تحويل البيانات لتنسيق يطابق الـ CSV (Mapping)
-        // هذا الجزء يضمن أن processData ستعمل دون تعديل كبير
-        rawData = allItemsDetails.map(item => {
-            const f = item.fields;
-            return {
-                'ID': item.id,
-                'Work Item Type': f['System.WorkItemType'],
-                'Title': f['System.Title'],
-                'Assigned To': f['System.AssignedTo']?.displayName || f['System.AssignedTo'] || "",
-                'State': f['System.State'],
-                'Business Area': f['MyCompany.MyProcess.BusinessArea'] || f['Custom.BusinessArea'],
-                'Original Estimation': f['NT.OriginalEstimation'] || f['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0,
-                'TimeSheet_DevActualTime': f['Custom.TimeSheet_DevActualTime'] || 0,
-                'TimeSheet_TestingActualTime': f['Custom.TimeSheet_TestingActualTime'] || 0,
-                'Activated Date': f['Microsoft.VSTS.Common.ActivatedDate'],
-                'Resolved Date': f['Microsoft.VSTS.Common.ResolvedDate'] || f['Custom.CustomResolvedDate'],
-                'Tested Date': f['MyCompany.MyProcess.TestedDate'],
-                'Severity': f['Microsoft.VSTS.Common.Severity'],
-                'GenericBug': f['NT.GenericBug'] || "No",
-                'Activity': f['Microsoft.VSTS.Common.Activity']
-            };
-        });
+        // 3. تحويل البيانات (Mapping) لتطابق الهيكل المطلوب في السايت
+        rawData = allItemsDetails.map(item => mapAzureFields(item));
 
-        // 4. معالجة البيانات وعرضها
-        processData();
-        await uploadToGitHub(rawData); // مزامنة النتائج مع جيتهاب
-        showView('iteration-view');
-        statusDiv.innerText = "✅ تم تحديث البيانات بنجاح";
+        // تشغيل معالجة البيانات وعرضها
+        processData(); 
+        statusDiv.innerText = "✅ تم جلب البيانات بنجاح";
+        
+        if (typeof showView === 'function') showView('iteration-view');
 
     } catch (error) {
-        console.error(error);
-        statusDiv.innerText = "❌ خطأ في الجلب: " + error.message;
+        console.error("Azure Integration Error:", error);
+        statusDiv.innerText = "❌ فشل الجلب: " + error.message;
     }
 }
+
 // دالة المابينج لتحويل مسميات Azure للمسميات المستخدمة في السايت
 function mapAzureFields(item) {
     const f = item.fields;
@@ -1809,33 +1796,20 @@ function mapAzureFields(item) {
 // استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
+    const savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
+
     if (!select) return;
-
-    // التأكد من استخدام نفس المفتاح الذي يستخدمه الجدول للتخزين
-    let savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
-
-    select.innerHTML = '<option value="">اختر الإعداد (Iteration/Query)...</option>';
-
-    if (savedQueries.length === 0) {
-        console.warn("لا توجد كويريز مسجلة.");
-        return;
-    }
+    select.innerHTML = '<option value="">-- اختر الكويري --</option>';
 
     savedQueries.forEach(config => {
         const option = document.createElement('option');
-        
-        // تحويل الكائن لنص JSON لتسهيل استرجاعه في دالة الجلب
+        // تخزين البيانات كـ JSON string لمنع الـ undefined
         option.value = JSON.stringify({
             org: config.organization,
-            project: config.project, // تأكد أنها 'project' كما في الجدول
+            project: config.project,
             queryId: config.queryId
         });
-
-        // عرض الاسم والبروجكت (تأكد من تطابق المسميات مع أعمدة الجدول)
-        const displayName = config.name || "بدون اسم";
-        const projectName = config.project || "مشروع غير محدد";
-        
-        option.textContent = `${projectName} - ${displayName}`;
+        option.textContent = config.name || `${config.project} - Query`;
         select.appendChild(option);
     });
 }
