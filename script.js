@@ -1694,74 +1694,136 @@ async function loadConfigsFromCloud() {
     }
 }
 
+
 async function fetchFromAzure() {
     const select = document.getElementById('azureIterationSelect');
-    const selectedValue = select.value;
+    const configIndex = select.value;
+    const pat = localStorage.getItem('azure_pat');
 
-    if (!selectedValue) {
-        alert("يرجى اختيار إعداد من القائمة أولاً");
-        return;
+    if (configIndex === "" || !pat) {
+        return alert("يرجى اختيار Iteration والتأكد من إدخال الـ PAT في شاشة الدخول");
     }
 
-    const config = JSON.parse(selectedValue);
-    const statusDiv = document.getElementById('statusMessage');
-    
-    // استخدام التوكن المخزن
-    const pat = document.getElementById('azurePatInput').value || localStorage.getItem('azure_pat');
+    const config = azureConfigs[configIndex];
+    const statusDiv = document.getElementById('sync-status');
+    statusDiv.style.display = 'block';
+    statusDiv.innerText = "⏳ جاري جلب البيانات من Azure...";
 
     try {
-        statusDiv.style.display = 'block';
-        statusDiv.innerText = "جاري جلب البيانات من Azure...";
+        const authHeader = { 'Authorization': 'Basic ' + btoa(':' + pat) };
+        
+        // 1. جلب قائمة الـ IDs من الكويري
+        const queryUrl = `https://dev.azure.com/${config.organization}/${config.project}/_api/_wit/queries/${config.queryId}?api-version=6.0`;
+        const queryRes = await fetch(queryUrl, { headers: authHeader });
+        const queryData = await queryRes.json();
 
-        // بناء الرابط باستخدام البيانات من الإعداد المختار
-        const url = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
+        let allIds = [];
+        let relations = [];
 
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Basic ${btoa(":" + pat)}`
+        // معالجة الكويري من نوع Links (كما هو موضح في الـ WIQL المرسل)
+        if (queryData.workItemRelations) {
+            relations = queryData.workItemRelations;
+            allIds = [...new Set(relations.map(r => r.target ? r.target.id : null).filter(id => id))];
+        } else if (queryData.workItems) {
+            allIds = queryData.workItems.map(wi => wi.id);
+        }
+
+        if (allIds.length === 0) throw new Error("الكويري لم يرجع أي نتائج");
+
+        // 2. جلب التفاصيل بنظام الـ Batch (200 عنصر في المرة)
+        let allWorkItemsDetails = [];
+        for (let i = 0; i < allIds.length; i += 200) {
+            const batchIds = allIds.slice(i, i + 200).join(',');
+            const detailsUrl = `https://dev.azure.com/${config.organization}/${config.project}/_apis/wit/workitems?ids=${batchIds}&$expand=all&api-version=6.0`;
+            const detailsRes = await fetch(detailsUrl, { headers: authHeader });
+            const detailsData = await detailsRes.json();
+            allWorkItemsDetails = allWorkItemsDetails.concat(detailsData.value);
+        }
+
+        // تحويل البيانات لقاموس ليسهل الوصول إليها بالـ ID
+        const itemsMap = {};
+        allWorkItemsDetails.forEach(item => itemsMap[item.id] = item);
+
+        // 3. بناء الـ rawData بنفس هيكلية الـ CSV (ترتيب الأبناء تحت الآباء)
+        const mappedData = [];
+        
+        // جلب الآباء أولاً (User Stories)
+        const parentRelations = relations.filter(r => r.rel === null || r.source === null);
+        
+        parentRelations.forEach(rel => {
+            const parentItem = itemsMap[rel.target.id];
+            if (parentItem) {
+                mappedData.push(mapAzureFields(parentItem));
+                
+                // جلب الأبناء المرتبطين بهذا الأب (Bugs/Tasks)
+                const children = relations.filter(r => r.source && r.source.id === rel.target.id);
+                children.forEach(childRel => {
+                    const childItem = itemsMap[childRel.target.id];
+                    if (childItem) {
+                        mappedData.push(mapAzureFields(childItem));
+                    }
+                });
             }
         });
 
-        const data = await response.json();
-        
-        // منطق معالجة البيانات المجلوبة (Work Items)
-        if (data.workItems) {
-            // هنا يتم استكمال جلب تفاصيل كل Work Item كما في الكود الحالي
-            // ... 
-            processData(); 
-            showView('iteration-view');
+        // إذا لم تكن هناك علاقات (Flat List)
+        if (mappedData.length === 0) {
+            allWorkItemsDetails.forEach(item => mappedData.push(mapAzureFields(item)));
         }
 
-    } catch (e) {
-        console.error("خطأ أثناء الجلب:", e);
-        statusDiv.innerText = "❌ حدث خطأ في الاتصال، تأكد من صحة الـ PAT والـ Query ID";
+        rawData = mappedData;
+        processData(); // تشغيل المعالجة الحالية
+        statusDiv.innerText = "✅ تم تحديث البيانات بنجاح";
+        showView('iteration-view');
+
+    } catch (error) {
+        console.error("Azure Fetch Error:", error);
+        statusDiv.innerText = "❌ خطأ في الجلب: " + error.message;
     }
 }
-// تعديل الدالة لتعتمد على الإعدادات المسجلة وليس البيانات المجلوبة
+
+// دالة المابينج لتحويل مسميات Azure للمسميات المستخدمة في السايت
+function mapAzureFields(item) {
+    const f = item.fields;
+    return {
+        "ID": item.id,
+        "Work Item Type": f["System.WorkItemType"],
+        "State": f["System.State"],
+        "Title": f["System.Title"],
+        "Assigned To": f["System.AssignedTo"]?.displayName || f["System.AssignedTo"] || "",
+        "Activity": f["Microsoft.VSTS.Common.Activity"] || "",
+        "Original Estimation": f["NT.OriginalEstimation"] || 0,
+        "TimeSheet_DevActualTime": f["Custom.TimeSheet_DevActualTime"] || 0,
+        "TimeSheet_TestingActualTime": f["Custom.TimeSheet_TestingActualTime"] || 0,
+        "Activated Date": f["Microsoft.VSTS.Common.ActivatedDate"] || "",
+        "Business Area": f["MyCompany.MyProcess.BusinessArea"] || "General",
+        "Iteration Path": f["System.IterationPath"] || "",
+        "CustomResolvedDate": f["Custom.CustomResolvedDate"] || "",
+        "Tested Date": f["MyCompany.MyProcess.TestedDate"] || "",
+        "Assigned To Tester": f["MyCompany.MyProcess.Tester"]?.displayName || f["MyCompany.MyProcess.Tester"] || "",
+        "Resolved Date": f["Microsoft.VSTS.Common.ResolvedDate"] || "",
+        "Severity": f["Microsoft.VSTS.Common.Severity"] || "",
+        "GenericBug": f["NT.GenericBug"] || "No"
+    };
+}
+
+// استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
-    // افترضنا أن الإعدادات مخزنة في متغير يسمى configurations أو يتم جلبها من جدول الكويريز
-    let savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
-
     if (!select) return;
 
-    select.innerHTML = '<option value="">اختر الإعداد (Iteration/Query)...</option>';
+    select.innerHTML = '<option value="">-- اختر الإعداد (Iteration) --</option>';
 
-    if (savedQueries.length === 0) {
-        console.warn("لا توجد إعدادات مسجلة في جدول الكويريز.");
+    if (!azureConfigs || azureConfigs.length === 0) {
+        console.warn("لا توجد إعدادات مسجلة.");
         return;
     }
 
-    savedQueries.forEach(config => {
+    azureConfigs.forEach((config, index) => {
         const option = document.createElement('option');
-        // تخزين البيانات المطلوبة في الـ value كـ JSON أو معرف فريد
-        option.value = JSON.stringify({
-            org: config.organization,
-            project: config.project,
-            queryId: config.queryId
-        });
-        // عرض اسم مريح للمستخدم (مثلاً اسم المشروع أو مسار الأيتريشن)
-        option.textContent = `${config.projectName} - ${config.iterationName}`;
+        // تخزين رقم الكوينفيج لتسهيل الوصول إليه لاحقاً
+        option.value = index; 
+        option.textContent = config.name || `${config.project} - Query`;
         select.appendChild(option);
     });
 }
