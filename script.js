@@ -1697,88 +1697,74 @@ async function loadConfigsFromCloud() {
 
 async function fetchFromAzure() {
     const select = document.getElementById('azureIterationSelect');
-    const configIndex = select.value;
+    if (!select || select.value === "") return alert("يرجى اختيار الكويري المناسب");
+
+    // استخراج الإعدادات من القيمة المختارة في الـ Dropdown
+    const config = JSON.parse(select.value);
     const pat = localStorage.getItem('azure_pat');
-
-    if (configIndex === "" || !pat) {
-        return alert("يرجى اختيار Iteration والتأكد من إدخال الـ PAT في شاشة الدخول");
-    }
-
-    const config = azureConfigs[configIndex];
     const statusDiv = document.getElementById('sync-status');
+
+    if (!pat) return alert("يرجى إدخال الـ PAT في شاشة الدخول أولاً");
+
     statusDiv.style.display = 'block';
-    statusDiv.innerText = "⏳ جاري جلب البيانات من Azure...";
+    statusDiv.innerText = "⏳ جاري الاتصال بـ Azure DevOps...";
 
     try {
-        const authHeader = { 'Authorization': 'Basic ' + btoa(':' + pat) };
+        const authHeader = { 
+            'Authorization': 'Basic ' + btoa(':' + pat),
+            'Content-Type': 'application/json'
+        };
+
+        // 1. جلب قائمة الـ IDs باستخدام الـ WIQL API (الرسمي الذي يسمح بـ CORS)
+        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
+        const wiqlRes = await fetch(wiqlUrl, { headers: authHeader });
         
-        // 1. جلب قائمة الـ IDs من الكويري
-        const queryUrl = `https://dev.azure.com/${config.organization}/${config.project}/_api/_wit/queries/${config.queryId}?api-version=6.0`;
-        const queryRes = await fetch(queryUrl, { headers: authHeader });
-        const queryData = await queryRes.json();
-
-        let allIds = [];
-        let relations = [];
-
-        // معالجة الكويري من نوع Links (كما هو موضح في الـ WIQL المرسل)
-        if (queryData.workItemRelations) {
-            relations = queryData.workItemRelations;
-            allIds = [...new Set(relations.map(r => r.target ? r.target.id : null).filter(id => id))];
-        } else if (queryData.workItems) {
-            allIds = queryData.workItems.map(wi => wi.id);
+        if (!wiqlRes.ok) throw new Error(`خطأ في الوصول للكويري: ${wiqlRes.status}`);
+        
+        const wiqlData = await wiqlRes.json();
+        
+        let workItemIds = [];
+        // التعامل مع الكويري سواء كان روابط (Links) أو قائمة مسطحة (Flat)
+        if (wiqlData.workItemRelations) {
+            workItemIds = wiqlData.workItemRelations
+                .map(rel => rel.target ? rel.target.id : null)
+                .filter(id => id !== null);
+        } else {
+            workItemIds = wiqlData.workItems.map(wi => wi.id);
         }
 
-        if (allIds.length === 0) throw new Error("الكويري لم يرجع أي نتائج");
+        if (workItemIds.length === 0) {
+            statusDiv.innerText = "⚠️ الكويري لم يرجع أي نتائج.";
+            return;
+        }
 
-        // 2. جلب التفاصيل بنظام الـ Batch (200 عنصر في المرة)
-        let allWorkItemsDetails = [];
-        for (let i = 0; i < allIds.length; i += 200) {
-            const batchIds = allIds.slice(i, i + 200).join(',');
-            const detailsUrl = `https://dev.azure.com/${config.organization}/${config.project}/_apis/wit/workitems?ids=${batchIds}&$expand=all&api-version=6.0`;
+        statusDiv.innerText = `⏳ تم العثور على ${workItemIds.length} عنصر، جاري جلب التفاصيل...`;
+
+        // 2. جلب التفاصيل بنظام الدفعات (Batching) - كل دفعة 200 عنصر
+        let allItemsDetails = [];
+        for (let i = 0; i < workItemIds.length; i += 200) {
+            const chunk = workItemIds.slice(i, i + 200).join(',');
+            const detailsUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/workitems?ids=${chunk}&$expand=all&api-version=6.0`;
+            
             const detailsRes = await fetch(detailsUrl, { headers: authHeader });
             const detailsData = await detailsRes.json();
-            allWorkItemsDetails = allWorkItemsDetails.concat(detailsData.value);
+            allItemsDetails = allItemsDetails.concat(detailsData.value);
+            
+            statusDiv.innerText = `⏳ جاري التحميل: ${allItemsDetails.length} / ${workItemIds.length}`;
         }
 
-        // تحويل البيانات لقاموس ليسهل الوصول إليها بالـ ID
-        const itemsMap = {};
-        allWorkItemsDetails.forEach(item => itemsMap[item.id] = item);
+        // 3. تحويل البيانات (Mapping) لتطابق الهيكل المطلوب في السايت
+        rawData = allItemsDetails.map(item => mapAzureFields(item));
 
-        // 3. بناء الـ rawData بنفس هيكلية الـ CSV (ترتيب الأبناء تحت الآباء)
-        const mappedData = [];
+        // تشغيل معالجة البيانات وعرضها
+        processData(); 
+        statusDiv.innerText = "✅ تم جلب البيانات بنجاح";
         
-        // جلب الآباء أولاً (User Stories)
-        const parentRelations = relations.filter(r => r.rel === null || r.source === null);
-        
-        parentRelations.forEach(rel => {
-            const parentItem = itemsMap[rel.target.id];
-            if (parentItem) {
-                mappedData.push(mapAzureFields(parentItem));
-                
-                // جلب الأبناء المرتبطين بهذا الأب (Bugs/Tasks)
-                const children = relations.filter(r => r.source && r.source.id === rel.target.id);
-                children.forEach(childRel => {
-                    const childItem = itemsMap[childRel.target.id];
-                    if (childItem) {
-                        mappedData.push(mapAzureFields(childItem));
-                    }
-                });
-            }
-        });
-
-        // إذا لم تكن هناك علاقات (Flat List)
-        if (mappedData.length === 0) {
-            allWorkItemsDetails.forEach(item => mappedData.push(mapAzureFields(item)));
-        }
-
-        rawData = mappedData;
-        processData(); // تشغيل المعالجة الحالية
-        statusDiv.innerText = "✅ تم تحديث البيانات بنجاح";
-        showView('iteration-view');
+        if (typeof showView === 'function') showView('iteration-view');
 
     } catch (error) {
-        console.error("Azure Fetch Error:", error);
-        statusDiv.innerText = "❌ خطأ في الجلب: " + error.message;
+        console.error("Azure Integration Error:", error);
+        statusDiv.innerText = "❌ فشل الجلب: " + error.message;
     }
 }
 
@@ -1810,19 +1796,19 @@ function mapAzureFields(item) {
 // استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
 function updateIterationDropdown() {
     const select = document.getElementById('azureIterationSelect');
+    const savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
+
     if (!select) return;
+    select.innerHTML = '<option value="">-- اختر الكويري --</option>';
 
-    select.innerHTML = '<option value="">-- اختر الإعداد (Iteration) --</option>';
-
-    if (!azureConfigs || azureConfigs.length === 0) {
-        console.warn("لا توجد إعدادات مسجلة.");
-        return;
-    }
-
-    azureConfigs.forEach((config, index) => {
+    savedQueries.forEach(config => {
         const option = document.createElement('option');
-        // تخزين رقم الكوينفيج لتسهيل الوصول إليه لاحقاً
-        option.value = index; 
+        // تخزين البيانات كـ JSON string لمنع الـ undefined
+        option.value = JSON.stringify({
+            org: config.organization,
+            project: config.project,
+            queryId: config.queryId
+        });
         option.textContent = config.name || `${config.project} - Query`;
         select.appendChild(option);
     });
