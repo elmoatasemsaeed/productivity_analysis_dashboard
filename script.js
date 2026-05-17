@@ -197,6 +197,9 @@ async function fetchDataFromGitHub() {
             updateIterationDropdown();
             processData(); 
             await loadConfigsFromCloud();
+            if (typeof renderAzureConfigsTable === 'function') {
+                renderAzureConfigsTable();
+            }
             showView('iteration-view');
             statusDiv.innerText = "✅ Data loaded from GitHub";
         } else {
@@ -1811,7 +1814,29 @@ function updateIterationDropdown() {
         select.appendChild(option);
     });
 }
+function renderAzureConfigsTable() {
+    const tbody = document.getElementById('azureConfigsTableBody'); // تأكد من مطابقة الـ ID في ملف الـ HTML
+    if (!tbody) return;
 
+    const savedQueries = azureConfigs || [];
+
+    if (savedQueries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No queries found in cloud configuration.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = savedQueries.map((config, index) => `
+        <tr>
+            <td>${config.name || 'N/A'}</td>
+            <td>${config.org || 'N/A'}</td>
+            <td>${config.project || 'N/A'}</td>
+            <td>${config.id || 'N/A'}</td>
+            <td>
+                <button onclick="deleteAzureConfig(${index})" style="background:#e74c3c; padding:5px 10px; color:white; border:none; border-radius:3px; cursor:pointer;">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
 // تشغيل التحميل عند فتح الصفحة
 window.addEventListener('load', async () => {
     if (githubToken) await loadConfigsFromCloud();
