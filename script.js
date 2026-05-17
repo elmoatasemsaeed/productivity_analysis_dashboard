@@ -1573,42 +1573,47 @@ attemptLogin = async function() {
 // 2. إضافة إعداد جديد
 async function addAzureConfig() {
     const config = {
-        id: document.getElementById('azQueryId').value, // تغيير queryId لـ id ليتناسب مع renderAzureDropdown
-        name: document.getElementById('azQueryName').value, // تغيير accountName لـ name
-        org: document.getElementById('azOrg').value,
-        project: document.getElementById('azProject').value
+    id: document.getElementById('azQueryId').value, 
+    name: document.getElementById('azQueryName').value, 
+    org: document.getElementById('azOrg').value,
+    project: document.getElementById('azProject').value
+};
+
+if (!config.id || !config.name) return alert("Please fill all fields");
+
+try {
+    // جلب أحدث نسخة لضمان الـ SHA وتحديث مصفوفة azureConfigs
+    await loadConfigsFromCloud();
+    
+    const updatedConfigs = [...azureConfigs, config];
+
+    // هنا نقوم بتشكيل الكائن النهائي ليطابق كود القراءة والـ Render
+    const filePayload = {
+        azure_queries: updatedConfigs
     };
 
-    if (!config.id || !config.name) return alert("Please fill all fields");
+    const updateResponse = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `token ${githubToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            message: "Add Azure Config",
+            // تحويل الـ filePayload بالكامل وليس المصفوفة فقط
+            content: btoa(unescape(encodeURIComponent(JSON.stringify(filePayload, null, 2)))), 
+            sha: azureConfigsSha
+        })
+    });
 
-    try {
-        // جلب أحدث نسخة لضمان الـ SHA
-        await loadConfigsFromCloud();
-        
-        const updatedConfigs = [...azureConfigs, config];
-
-        const updateResponse = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/azure_configs.json`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${githubToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: "Add Azure Config",
-                content: btoa(unescape(encodeURIComponent(JSON.stringify(updatedConfigs, null, 2)))), // دعم الرموز الخاصة
-                sha: azureConfigsSha
-            })
-        });
-
-        if (updateResponse.ok) {
-            alert("تم الحفظ بنجاح!");
-            await loadConfigsFromCloud(); // إعادة التحميل لتحديث المصفوفة والـ SHA
-        } else {
-            throw new Error("Failed to update GitHub");
-        }
-    } catch (error) {
-        alert("خطأ أثناء الحفظ: " + error.message);
+    if (updateResponse.ok) {
+        alert("Saved successfully!"); // تم تحويل الرسالة للإنجليزية لتطابق الـ UI
+        await loadConfigsFromCloud(); // إعادة التحميل لتحديث المصفوفة والـ SHA الجديد
+    } else {
+        throw new Error("Failed to update GitHub");
     }
+} catch (error) {
+    alert("Error during save: " + error.message);
 }
 
 // 3. حذف إعداد (تعديل جذري للمزامنة مع الكلاود)
@@ -1794,10 +1799,11 @@ function mapAzureFields(item) {
 }
 
 // استبدل الدالة الموجودة في آخر الملف أو المكررة بهذه النسخة الموحدة
-function updateIterationDropdown() {
+function updateIterationDropdown {
     const select = document.getElementById('azureIterationSelect');
-    // تأكد من أن البيانات القادمة من الريبو يتم حفظها في هذا المفتاح 'azure_queries'
-    const savedQueries = JSON.parse(localStorage.getItem('azure_queries') || "[]");
+    
+    // الاعتماد على البيانات القادمة من الريبو/السيتاب مباشرة بدلاً من الـ localStorage
+    const savedQueries = queriesData || [];
 
     if (!select) return;
     select.innerHTML = '<option value="">-- اختر الكويري --</option>';
@@ -1807,9 +1813,9 @@ function updateIterationDropdown() {
         
         // تعديل المسميات لتطابق ملف azure_configs.json (id و org)
         option.value = JSON.stringify({
-            org: config.org,        // تم التعديل من organization إلى org
+            org: config.org,        
             project: config.project,
-            queryId: config.id      // تم التعديل من queryId إلى id
+            queryId: config.id      // الاعتماد على الـ id القادم من الملف
         });
         
         option.textContent = config.name || `${config.project} - Query`;
