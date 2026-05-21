@@ -1120,7 +1120,7 @@ function renderTeamView() {
                 </div>
 
                 <div style="border:1px solid #e1e8ed; padding:15px; border-radius:8px; border-left:4px solid ${reworkColor};">
-                    <div style="font-size:0.85em; color:#7f8c8d; font-weight:600;">Combined Rework Ratio</div>
+                    <div style="font-size:0.85em; color:#7f8c8d; font-weight:600;">Rework Ratio</div>
                     <div style="font-size:1.8em; font-weight:bold; color:${reworkColor}; margin:5px 0;">${combinedReworkRatio.toFixed(1)}%</div>
                     <div style="font-size:0.75em; color:#95a5a6;">QC Bugs: ${stats.reworkTime.toFixed(1)}h | Reviews: ${stats.reviewTime.toFixed(1)}h</div>
                 </div>
