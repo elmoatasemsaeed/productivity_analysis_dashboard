@@ -1039,7 +1039,7 @@ function renderTeamView() {
                 </div>`;
         };
 
-        // --- محرك تحليل جودة البرمجيات والمقارنات الخلفية الذكي (QC vs Peer Review) ---
+        // --- محرك تحليل جودة البرمجيات المطور (تحليل مكتوب فقط) ---
         function generateAdvancedQualityAnalysis(s) {
             let insights = [];
             const totalIssues = s.bugsCount + s.reviewCount;
@@ -1049,36 +1049,40 @@ function renderTeamView() {
             const avgTimePerBug = s.bugsCount > 0 ? (s.reworkTime / s.bugsCount) : 0;
             const avgTimePerReview = s.reviewCount > 0 ? (s.reviewTime / s.reviewCount) : 0;
 
-            // 1. محور الفعالية الكلية (Overall Effectiveness)
+            // 1. محور الفعالية الكلية واستراتيجية الشفت-ليفت (Overall Effectiveness)
             if (reviewCatchRate > 40) {
-                insights.push(`<li><b>Excellent Shift-Left Quality Strategy:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal QC execution cycle. This significantly reduces testing blockage.</li>`);
+                insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal QC execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
             } else if (reviewCatchRate > 15) {
-                insights.push(`<li><b>Moderate Review Filtering:</b> Reviews captured <span style="color:#f39c12; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of system issues. There is still an opportunity to optimize checklist validations to catch defects prior to QC submission.</li>`);
+                insights.push(`<li><b>Moderate Containment Layer:</b> Reviews captured <span style="color:#f39c12; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of system issues. The filtration mechanism functions moderately but pushes a considerable burden down to the formal QC pipelines.</li>`);
             } else {
-                insights.push(`<li><b>High Reliance on QC Leakage Detector:</b> Only <span style="color:#c0392b; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of defects were isolated during reviews, pushing the load entirely to QC stage (${s.bugsCount} standard bugs found). Review rigor must be enhanced.</li>`);
+                insights.push(`<li><b>High QC Phase Leakage Danger:</b> Only <span style="color:#c0392b; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of defects were isolated during reviews, shifting the quality shield heavily to the QC stage (${s.bugsCount} standard bugs found).</li>`);
             }
 
-            // 2. محور تحليل توزيع خطورة المشاكل (Severity Distribution Insight)
+            // 2. محور تحليل توزيع خطورة المشاكل (Severity & Risk Profiling)
             if (highSevBugs > highSevReviews && highSevBugs > 0) {
-                insights.push(`<li><b>Critical Leakage Risk:</b> QC captured <span style="color:#c0392b; font-weight:bold;">${highSevBugs} Critical/High Defects</span>, whereas Peer Reviews only caught <span style="color:#27ae60; font-weight:bold;">${highSevReviews}</span>. Architectural and security rules are slipping through standard engineering desk-checks.</li>`);
+                insights.push(`<li><b>Critical Risk Profile:</b> Formal QC captured <span style="color:#c0392b; font-weight:bold;">${highSevBugs} Critical/High Defects</span>, whereas Peer Reviews only caught <span style="color:#27ae60; font-weight:bold;">${highSevReviews}</span>. This indicates that architectural anomalies and core edge-cases are slipping past standard engineering code-reviews.</li>`);
             } else if (highSevReviews >= highSevBugs && highSevReviews > 0) {
-                insights.push(`<li><b>Robust Architectural Shielding:</b> Code & design reviews successfully blocked <span style="color:#27ae60; font-weight:bold;">${highSevReviews} High-Impact Vulnerabilities/Bugs</span> from leaking into QC streams, saving deployment stability and verification cycles.</li>`);
+                insights.push(`<li><b>Architectural Shielding Integrity:</b> Engineering reviews successfully blocked <span style="color:#27ae60; font-weight:bold;">${highSevReviews} High-Impact Vulnerabilities</span> from leaking into QC streams, shielding deployment stability and reducing expensive regression testing.</li>`);
             }
 
-            // 3. محور كفاءة التكلفة والوقت المبذول (Cost & Time Efficiency Axis)
+            // 3. محور التكلفة والوقت المبذول لكل مرحلة (Cost-of-Quality and Effort Efficiency)
             if (avgTimePerBug > avgTimePerReview && s.reviewCount > 0) {
-                insights.push(`<li><b>Cost-Benefit Advantage:</b> Fixing a standard QC bug took an average of <span style="color:#c0392b; font-weight:bold;">${avgTimePerBug.toFixed(1)}h</span> compared to only <span style="color:#27ae60; font-weight:bold;">${avgTimePerReview.toFixed(1)}h</span> for a Review discovery. Intercepting defects early has proven highly cost-effective here.</li>`);
+                insights.push(`<li><b>Effort ROI Variance:</b> Resolving a standard QC bug demanded an average of <span style="color:#c0392b; font-weight:bold;">${avgTimePerBug.toFixed(1)}h</span> compared to only <span style="color:#27ae60; font-weight:bold;">${avgTimePerReview.toFixed(1)}h</span> for a Review discovery. This statistical gap confirms that earlier defect isolation yields massive effort savings.</li>`);
             } else if (avgTimePerReview > avgTimePerBug && s.bugsCount > 0) {
-                insights.push(`<li><b>Review Overhead Warning:</b> Review action items consumed around <span style="color:#d35400; font-weight:bold;">${avgTimePerReview.toFixed(1)}h</span> per item, which is high compared to standard bug handling (${avgTimePerBug.toFixed(1)}h). Review scopes might need better structure and alignment.</li>`);
+                insights.push(`<li><b>Review Friction Analysis:</b> Review item treatments consumed roughly <span style="color:#d35400; font-weight:bold;">${avgTimePerReview.toFixed(1)}h</span> per item, which exceeds standard QC bug resolution times (${avgTimePerBug.toFixed(1)}h). This suggests overhead issues or complexity spikes in the review workflow.</li>`);
             }
 
-            // 4. توصيات هندسية مخصصة وديناميكية (Actionable Engineering Recommendations)
-            if (s.bugsCrit > 0 && reviewCatchRate < 30) {
-                insights.push(`<li><b>🎯 Targeted Action Plan:</b> Standardize Senior Developer checkpoints and mandate automated unit/integration test suites specifically covering critical logical tracks before shipping builds to the QC team.</li>`);
-            } else if (combinedReworkRatio > 20) {
-                insights.push(`<li><b>🎯 Targeted Action Plan:</b> Rework ratio is high (<span style="color:#c0392b; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Run a dedicated Root Cause Analysis (RCA) or Fishbone session for this Iteration to address scope creep or ambiguous developer stories.</li>`);
+            // 4. فكرة مضافة: تحليل الأثر على سرعة الإنتاجية (Delivery Velocity Drag Analysis)
+            const deliveryDrag = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
+            if (deliveryDrag > 20) {
+                insights.push(`<li><b>Velocity & Process Drag:</b> Rework and verification processes consumed <span style="color:#c0392b; font-weight:bold;">${deliveryDrag.toFixed(1)}%</span> of the overall actual effort expended in this area. This high friction ratio serves as a primary driver behind extended cycle times.</li>`);
             } else {
-                insights.push(`<li><b>🎯 Targeted Action Plan:</b> Continuous optimization. Maintain current balance and expand regression testing strategies to guarantee stability against code refactoring.</li>`);
+                insights.push(`<li><b>Streamlined Process Velocity:</b> Process friction remains low at <span style="color:#27ae60; font-weight:bold;">${deliveryDrag.toFixed(1)}%</span>, demonstrating an optimized throughput pipeline where engineering effort is mostly directed towards feature creation rather than stabilization.</li>`);
+            }
+
+            // 5. فكرة مضافة: تراكز وتكتل الأخطاء (Defect Clustering Assessment)
+            if (s.bugsCount > 0 && (s.bugsCrit + s.bugsHigh) / s.bugsCount > 0.4) {
+                insights.push(`<li><b>Defect Clustering Alert:</b> Over 40% of the defects identified by QC fall strictly under High or Critical classifications. This concentration signals potential stability weaknesses or highly complex technical debt inside this business area's codebase.</li>`);
             }
 
             return insights.join("");
