@@ -1052,7 +1052,7 @@ function renderTeamView() {
              </div>`;
         };
 
-        function generateAdvancedQualityAnalysis(s) {
+function generateAdvancedQualityAnalysis(s) {
     let insights = [];
     
     // 1. الحسابات الأساسية والمتقدمة للاعتماد عليها في الشروط المتقاطعة
@@ -1070,6 +1070,11 @@ function renderTeamView() {
     // حساب الـ DRE المباشر برمجياً للاستخدام داخل المنطق (مستنتج من التقرير المكتوب)
     const totalIterationBugs = s.totalIterationBugs || (s.bugsCount + (s.totalUatBugs || 0));
     const dreValueNum = totalIterationBugs > 0 ? ((s.bugsCount / totalIterationBugs) * 100) : 100;
+
+    // حسابات مخصصة لتوزيع السيفيرتي والتايم شيت (Severity & Efficiency Extra Calculations)
+    const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
+    const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
+    const uatLeakageRatio = totalIterationBugs > 0 ? ((s.totalUatBugs || 0) / totalIterationBugs) * 100 : 0;
 
     // =========================================================================
     // المحور الأول: الفعالية الكلية واستراتيجية الشفت-ليفت (Shift-Left Strategy)
@@ -1106,16 +1111,15 @@ function renderTeamView() {
     // المحور الرابع: تحليل عمق وخطورة المشاكل ومقارنتها (Severity & Blind Spots)
     // =========================================================================
     if (s.bugsCount > 0) {
-        const severityRatio = (highSevBugs / s.bugsCount) * 100;
-        if (severityRatio > 30) {
-            insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${severityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
+        if (bugSeverityRatio > 30) {
+            insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
             
             // شرط مفرع أعمق: لو البجات الخطيرة بالـ QC عالية والـ Reviews مأفشتش خطير، معناه الـ review سطحي جداً
             if (highSevReviews === 0) {
                 insights.push(`<li><b>🔎 Review Blind Spot Diagnosis:</b> While QC detected <span style="color:#e74c3c; font-weight:bold;">${highSevBugs} High/Critical bugs</span>, Peer Reviews intercepted <span style="color:#747d8c; font-weight:bold;">0</span>. Peer audits are entirely blind to core architecture, integration constraints, or deep database schemas, acting only as superficial code format checks.</li>`);
             }
         } else {
-            insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${severityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
+            insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
         }
     }
 
@@ -1129,6 +1133,61 @@ function renderTeamView() {
         if (avgCycleTime > 5) {
             insights.push(`<li><b>⏳ Blocked Cycle Time Correlation:</b> The prolonged user story cycle time (<span style="color:#8e44ad; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) is statistically linked to the resolution complexity of bugs (${avgTimePerBug.toFixed(1)}h). User stories are stalling in the "Testing/Rework" phase for multiple days due to resolution drag.</li>`);
         }
+    }
+
+    // =========================================================================
+    // المحاور الجديدة والمتقدمة بحكم الخبرة البرمجية والهندسية المتكاملة
+    // =========================================================================
+
+    // 1. تحليل الفجوة التشخيصية بين المراجعة والتنفيذ (Asymmetric Quality Filtering Gap)
+    // عندما يكتشف الـ Review أخطاء خطيرة بينما يكتشف الـ QC أخطاء منخفضة الخطورة
+    if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
+        insights.push(`<li><b>🛡️ High-Fidelity Pre-Emptive Review:</b> Peer reviews are filtering architectural flaws early (High-Sev Review: <span style="color:#27ae60; font-weight:bold;">${reviewSeverityRatio.toFixed(1)}%</span>) resulting in a highly clean and stable build deployed to QC (High-Sev QC Bugs: <span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). This validates high engineering discipline.</li>`);
+    }
+
+    // 2. تحليل الاحتكاك والهروب أثناء المراجعة (Superficial Peer-Review Sign-off Pattern)
+    // عدد كبير من مراجعات الكود البرمجي لكن بدون أي تأثير حقيقي على حجز الأخطاء (صورية ومجرد إمضاء)
+    if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
+        insights.push(`<li><b>🚨 Superficial Peer-Review Pattern:</b> High volume of Peer Reviews (<span style="color:#8e44ad; font-weight:bold;">${s.reviewCount}</span>) detected zero high-severity issues, yet QC faced critical/high bottlenecks (<span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). Code sign-offs are purely process-driven/administrative without technical validation depth.</li>`);
+    }
+
+    // 3. تحليل الاختناق الزمني المرتبط بإعادة العمل الصامت أو المفقود (Silent Rework & Time-Log Leakage)
+    // إذا كان الجهد الفعلي المستهلك كبير جداً، لكن الـ Rework Logged صفر أو قليل بشكل لا يتناسب مع حجم التأخير
+    if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
+        insights.push(`<li><b>🕵️ Hidden Rework & Timesheet Inaccuracy:</b> Significant effort variance found (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) with artificially low logged rework/review time (<span style="color:#e67e22; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Team members are likely fixing bugs and refactoring code implicitly under normal development hours without proper activity logging.</li>`);
+    }
+
+    // 4. تحليل الاستقرار الهيكلي مقابل التعديلات الوظيفية (Architectural Instability vs Functional Tweak Profile)
+    // إذا كان عدد البجات قليل جداً، ولكن متوسط إصلاح البج الواحدة ضخم جداً (معناه الكود معقد جداً وأي مشكلة تضرب الجذور)
+    if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
+        insights.push(`<li><b>🏗️ Severe Architectural Coupling:</b> Low defect density (Only <span style="color:#3498db; font-weight:bold;">${s.bugsCount} bugs</span>) but extreme MTTR (<span style="color:#e74c3c; font-weight:bold;">${avgTimePerBug.toFixed(1)} hours/bug</span>). The system suffers from high coupling or fragile dependencies; changing minor code paths requires massive code tracing and extensive debugging effort.</li>`);
+    }
+
+    // 5. تحليل مؤشر كفاءة الحماية الثلاثية والتسريبات الخارجية (Critical UAT Leakage Spike)
+    // عندما تهرب المشاكل الخطيرة للـ UAT متخطية الحواجز الداخلية للشركة
+    if (uatLeakageRatio > 25 && s.bugsCount > 0) {
+        insights.push(`<li><b>💥 Severe Quality Gate Escape:</b> Out of total Defects, UAT Leakages reached <span style="color:#e74c3c; font-weight:bold;">${uatLeakageRatio.toFixed(1)}%</span>. Internal quality gates are misaligned with business integration logic or the staging environment lacks proper test-data combinations found in user-acceptance tracks.</li>`);
+    }
+
+    // 6. تحليل أثر الـ DB Modification والاعتماديات المشتركة (Database Schema Modification Friction)
+    // إذا كان هناك تعديل في قواعد البيانات مصاحب بـ Cycle Time طويل وبجات معقدة
+    if (s.dbCountCount > 0 && avgCycleTime > 6 && bugSeverityRatio > 35) {
+        insights.push(`<li><b>🗄️ Database Coupling Friction:</b> Data tier modifications (FTE: <span style="color:#8e44ad; font-weight:bold;">${s.dbCountCount.toFixed(2)}</span>) are heavily correlating with an extended cycle time (<span style="color:#e67e22; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) and high bug severity. Changes in tables/schemas are causing breaking impacts across application blocks. Require stricter DB design reviews.</li>`);
+    }
+
+    // 7. تحليل التوازن والانحراف التشغيلي في الموارد (Resource Burnout & Under-Testing Indicator)
+    // عندما يكون ضغط المبرمجين أعلى بكثير من التستر مما يؤدي لضعف التغطية وهروب الأخطاء لاحقاً
+    if (s.devCountCount > 0 && s.testerCountCount > 0) {
+        const devToTesterRatio = s.devCountCount / s.testerCountCount;
+        if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
+            insights.push(`<li><b>⚖️ Resource Skew & Test Bottleneck:</b> Asymmetric Dev-to-Tester Capacity ratio (<span style="color:#e67e22; font-weight:bold;">${devToTesterRatio.toFixed(1)}:1</span>) matched with UAT leakages. QC capacity is diluted under a flood of incoming dev code updates, leading to shallow operational verification passes.</li>`);
+        }
+    }
+
+    // 8. مؤشر الاستقرار الشامل والـ Maturity Level (CMMI Capability Alignment)
+    // عندما تتطابق المؤشرات مع معايير الثبات الإحصائي (CMMI Level 4/5)
+    if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && dreValueNum >= 90) {
+        insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
     }
 
     // الخروج بالتحليل النهائي الافتراضي في حالة استقرار كافة المؤشرات البرمجية والهندسية
