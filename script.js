@@ -1952,7 +1952,7 @@ function mapAzureFields(item) {
         "Resolved Date": f["Microsoft.VSTS.Common.ResolvedDate"] || "",
         "Severity": f["Microsoft.VSTS.Common.Severity"] || "",
         "GenericBug": f["NT.GenericBug"] || "No",
-        "BugType": f["NT.Bug_Type"] || "UAT"
+        "BugType": f["NT.BugType"] || ""
     };
 }
 
