@@ -1085,9 +1085,9 @@ function renderTeamView() {
                 insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
             }
 
-            if (dreValueNum < 80 && (s.totalUatBugs || 0) > 0) {
+            if (dreValueNum < 15 && (s.totalUatBugs || 0) > 0) {
                 insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${dreValueNum.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
-            } else if (dreValueNum >= 95 && s.bugsCount > 0) {
+            } else if (dreValueNum >= 15 && s.bugsCount > 0) {
                 insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${dreValueNum.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
             }
 
