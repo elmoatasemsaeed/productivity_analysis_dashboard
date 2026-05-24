@@ -470,7 +470,7 @@ function calculateMetrics() {
             const bDevAct = parseFloat(b['TimeSheet_DevActualTime']) || 0;
             const bEst = parseFloat(b['Original Estimation']) || 0;
             const sev = b['Severity'] || "";
-            const bugType = (b['Bug Type'] || "").trim().toUpperCase(); // قراءة العمود الجديد
+            const bugType = (b['BugType'] || "").trim().toUpperCase(); // قراءة العمود الجديد
 
             // تصنيف وتحديد البجز بناءً على الـ Bug Type
             if (bugType === 'UAT') {
@@ -1952,7 +1952,7 @@ function mapAzureFields(item) {
         "Resolved Date": f["Microsoft.VSTS.Common.ResolvedDate"] || "",
         "Severity": f["Microsoft.VSTS.Common.Severity"] || "",
         "GenericBug": f["NT.GenericBug"] || "No",
-        "Bug Type": f["NT.Bug_Type"] || ""
+        "BugType": f["NT.Bug_Type"] || ""
     };
 }
 
