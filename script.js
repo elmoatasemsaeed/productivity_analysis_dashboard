@@ -1214,7 +1214,7 @@ function renderTeamView() {
 
             <div style="margin-top:25px; background:#f9f9fb; border-radius:8px; padding:20px; border:1px solid #eccc68; box-shadow:inset 0 1px 3px rgba(0,0,0,0.02);">
                 <h4 style="margin:0 0 12px 0; color:#ffa502; font-size:1.05em; font-weight:700; display:flex; align-items:center; gap:8px;">
-                    🧠 AI & CMMI Engineering Quality Insights
+                    🧠 Defect Analyses
                 </h4>
                 <ul style="margin:0; padding-left:20px; font-size:0.92em; color:#2c3e50; line-height:1.6;">
                     ${generateAdvancedQualityAnalysis(stats)}
