@@ -1063,7 +1063,7 @@ function renderTeamView() {
             const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
             
             const totalIterationBugs = s.totalIterationBugs || (s.bugsCount + (s.totalUatBugs || 0));
-            const dreValueNum = totalIterationBugs > 0 ? ((s.bugsCount / totalIterationBugs) * 100) : 100;
+            const dreValueNum = totalIterationBugs > 0 ? ((s.bugsCount / totalIterationBugs) * 10) : 10;
 
             const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
             const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
