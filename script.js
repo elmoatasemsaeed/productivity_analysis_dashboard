@@ -1029,10 +1029,13 @@ function renderTeamView() {
         const combinedReworkRatio = ((stats.reworkTime + stats.reviewTime) / (stats.totalAct || 1)) * 100;
         const avgCycleTime = (stats.totalCycleTime / stats.totalStories).toFixed(1);
 
-        const dreValueNum = stats.totalIterationBugs > 0 ? ((stats.totalUatBugs / stats.totalIterationBugs) * 100) : 0;
+        // تصحيح حساب الـ DRE: الأخطاء الداخلية المتكتشفة تقسيم إجمالي الأخطاء (داخلي + خارجي)
+        const totalAllBugs = stats.bugsCount + stats.totalUatBugs;
+        const dreValueNum = totalAllBugs > 0 ? (stats.bugsCount / totalAllBugs) * 100 : 100;
         const dreValue = dreValueNum.toFixed(1);
         
-        const dreColor = dreValueNum <= 15 ? '#2e7d32' : '#d32f2f';
+        // تصحيح الألوان: DRE الممتازة تكون مرتفعة (أكبر من 85%)
+        const dreColor = dreValueNum >= 85 ? '#2e7d32' : '#d32f2f';
         const varianceColor = effortVariance <= 15 ? '#2e7d32' : '#d32f2f';
         const reworkColor = combinedReworkRatio > 15 ? '#d32f2f' : '#2e7d32';
 
@@ -1062,12 +1065,13 @@ function renderTeamView() {
             const combinedReworkRatio = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
             const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
             
-            const totalIterationBugs = s.totalIterationBugs || (s.bugsCount + (s.totalUatBugs || 0));
-            const dreValueNum = totalIterationBugs > 0 ? ((s.bugsCount / totalIterationBugs) * 10) : 10;
+            // إصلاح الحسابات الداخلية لدالة التحليل المتقدم
+            const totalAllBugsLocal = s.bugsCount + (s.totalUatBugs || 0);
+            const calculatedDre = totalAllBugsLocal > 0 ? (s.bugsCount / totalAllBugsLocal) * 100 : 100;
 
             const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
             const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
-            const uatLeakageRatio = totalIterationBugs > 0 ? ((s.totalUatBugs || 0) / totalIterationBugs) * 100 : 0;
+            const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
 
             if (reviewCatchRate > 40) {
                 insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal testing execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
@@ -1085,10 +1089,11 @@ function renderTeamView() {
                 insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
             }
 
-            if (dreValueNum >= 15 && (s.totalUatBugs || 0) > 0) {
-                insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${dreValueNum.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
-            } else if (dreValueNum < 15 && s.bugsCount > 0) {
-                insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${dreValueNum.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
+            // تعديل شروط فحص DRE والتحذير من تسريب الـ UAT بناءً على النسب الجديدة الصحيحة
+            if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
+                insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${calculatedDre.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
+            } else if (calculatedDre >= 85 && s.bugsCount > 0) {
+                insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${calculatedDre.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
             }
 
             if (s.bugsCount > 0) {
@@ -1140,7 +1145,7 @@ function renderTeamView() {
                 }
             }
 
-            if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && dreValueNum >= 90) {
+            if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && calculatedDre >= 90) {
                 insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
             }
 
@@ -1183,7 +1188,7 @@ function renderTeamView() {
                 <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid ${dreColor}; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
                     <div style="font-size:0.85em; color:#747d8c; text-transform:uppercase; font-weight:600;">DRE</div>
                     <div style="font-size:1.8em; font-weight:700; color:${dreColor}; margin:5px 0;">${dreValue}%</div>
-                    <div style="font-size:0.8em; color:#57606f;">UAT: <b>${stats.totalUatBugs}</b> / Iteration: <b>${stats.totalIterationBugs}</b></div>
+                    <div style="font-size:0.8em; color:#57606f;">UAT: <b>${stats.totalUatBugs}</b> / Iteration: <b>${stats.bugsCount}</b></div>
                 </div>
 
                 <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid #8e44ad; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
