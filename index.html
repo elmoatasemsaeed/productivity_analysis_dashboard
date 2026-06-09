@@ -6,6 +6,8 @@
     <title>User Story Analysis System</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:,">
+    <!-- Chart.js for historical analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         /* تنسيقات شاشة تسجيل الدخول */
@@ -76,10 +78,11 @@
         <button onclick="document.getElementById('csvFile').click()" class="admin-only">Upload CSV</button>
         
         <select id="azureIterationSelect" style="padding: 8px; border-radius: 4px;">
-    <option value="">Select Iteration...</option>
-</select>
-
-<button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+            <option value="">Select Iteration...</option>
+        </select>
+        <button id="fetchAzureBtn" onclick="fetchFromAzure()" style="background: #0078d4;">Fetch from Azure</button>
+        
+        <button onclick="syncAllIterationsData()" class="admin-only" style="background: #8e44ad;">Sync All Iterations Data</button>
         
         <div style="border-left: 1px solid #555; height: 30px; margin: 0 10px;"></div>
 
@@ -88,6 +91,8 @@
         <button onclick="showView('team-view')">Team View</button>
         <button onclick="showView('people-view')">People View</button>
         <button onclick="showView('not-tested-view')">Not Tested</button>
+        
+        <button onclick="showView('historical-analytics-view')">Historical Trends</button>
         
         <button onclick="showView('azure-settings-view')" class="admin-only">Azure Config</button>
         <button onclick="showView('users-view')" class="admin-only">Manage Users</button>
@@ -111,6 +116,19 @@
         <div id="people-view" class="view" style="display:none;"></div>
         <div id="not-tested-view" class="view" style="display:none;"></div>
         
+        <div id="historical-analytics-view" class="view" style="display:none; padding: 20px;">
+            <h2>Cross‑Iteration Performance Trends</h2>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px; background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <canvas id="cycleTimeChart" width="400" height="300"></canvas>
+                </div>
+                <div style="flex: 1; min-width: 300px; background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <canvas id="storiesBugsChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+            <div id="historicalSummaryTable" style="margin-top: 30px; overflow-x: auto;"></div>
+        </div>
+
         <div id="azure-settings-view" class="view" style="display:none; padding: 20px;">
             <h3>Manage Azure DevOps Queries</h3>
             <div class="card" style="padding: 20px; max-width: 600px; background: #f9f9f9; border-radius: 8px;">
@@ -129,17 +147,8 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-                <table id="azureConfigsTable">
-    <thead>
-        <tr>
-            <th>Account Name</th>
-            <th>Query ID</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody id="azureConfigsTableBody">
-        </tbody>
-</table>
+                <tbody id="azureConfigsTableBody"></tbody>
+            </table>
         </div>
 
         <div id="users-view" class="view" style="display:none; padding: 20px;">
