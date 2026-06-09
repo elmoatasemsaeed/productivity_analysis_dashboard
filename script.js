@@ -1407,25 +1407,56 @@ async function fetchIterationSummary(config) {
     const rawIterationData = allItems.map(item => mapAzureFields(item));
     const stories = buildStoriesFromRawDataForHistory(rawIterationData);
     calculateMetricsForStoriesForHistory(stories);
+
+    // Aggregated metrics
     let totalStories = stories.length;
-    let totalEst = 0, totalAct = 0;
+    let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
     let totalInternalBugs = 0, totalUatBugs = 0;
     let closedCount = 0;
+    let uniqueResources = new Set();
+    let bugSeverity = { critical: 0, high: 0, medium: 0, low: 0 };
+    let bugTypeCount = { generic: 0, specific: 0 }; // generic = "Yes", specific = "No"
+
     stories.forEach(us => {
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
-        const act = us.devEffort.actual + us.testEffort.actual + (us.dbEffort?.actual || 0) + us.rework.actualTime + (us.reviewStats.devActual + us.reviewStats.testActual);
+        const devAct = us.devEffort.actual;
+        const testAct = us.testEffort.actual;
+        const bugAct = us.rework.actualTime;
         totalEst += est;
-        totalAct += act;
+        totalDevActual += devAct;
+        totalTestActual += testAct;
+        totalBugActual += bugAct;
         if (us.cycleTime > 0) { totalCycleTime += us.cycleTime; cycleCount++; }
         totalInternalBugs += us.rework.count;
         totalUatBugs += us.rework.uatBugsCount;
         if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') closedCount++;
+
+        // Resources (dev lead, tester lead, task assignees)
+        if (us.devLead) uniqueResources.add(us.devLead);
+        if (us.testerLead) uniqueResources.add(us.testerLead);
+        us.tasks.forEach(t => {
+            if (t['Assigned To']) uniqueResources.add(t['Assigned To']);
+        });
+
+        // Bug severity (from us.rework.severity)
+        bugSeverity.critical += us.rework.severity.critical;
+        bugSeverity.high += us.rework.severity.high;
+        bugSeverity.medium += us.rework.severity.medium;
+        bugSeverity.low += us.rework.severity.low;
+
+        // Bug type counts (generic vs specific)
+        bugTypeCount.generic += us.rework.generic.count;
+        bugTypeCount.specific += us.rework.specific.count;
     });
+
     const avgCycleTime = cycleCount ? (totalCycleTime / cycleCount).toFixed(1) : 0;
-    const effortVariance = totalEst ? ((totalAct - totalEst) / totalEst) * 100 : 0;
+    const effortVariance = totalEst ? ((totalDevActual + totalTestActual - totalEst) / totalEst) * 100 : 0;
     const totalBugs = totalInternalBugs + totalUatBugs;
     const dre = totalBugs ? (totalInternalBugs / totalBugs) * 100 : 100;
+    const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
+    const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
+
     return {
         iterationName: config.name,
         totalStories: totalStories,
@@ -1434,7 +1465,16 @@ async function fetchIterationSummary(config) {
         effortVariance: parseFloat(effortVariance.toFixed(1)),
         dre: parseFloat(dre.toFixed(1)),
         internalBugs: totalInternalBugs,
-        uatBugs: totalUatBugs
+        uatBugs: totalUatBugs,
+        // New extended fields
+        totalDevActual: parseFloat(totalDevActual.toFixed(1)),
+        totalTestActual: parseFloat(totalTestActual.toFixed(1)),
+        totalBugActual: parseFloat(totalBugActual.toFixed(1)),
+        uniqueResourcesCount: uniqueResources.size,
+        avgHoursPerResource: parseFloat(avgHoursPerResource.toFixed(1)),
+        bugSeverity: bugSeverity,
+        bugTypeCount: bugTypeCount,
+        reworkRatio: parseFloat(reworkRatio.toFixed(1))
     };
 }
 
@@ -1508,12 +1548,66 @@ async function loadHistoricalSummary() {
     return local ? JSON.parse(local) : [];
 }
 
+function renderLineChart(canvasId, labels, data, label, color) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: label, data: data, borderColor: color, backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: color }] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.raw}%` } } } }
+    });
+}
+
+function renderLineChartWithTarget(canvasId, labels, data, label, color, targetValue) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    const targetData = Array(labels.length).fill(targetValue);
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [
+            { label: label, data: data, borderColor: color, backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: color },
+            { label: `Target ${targetValue}%`, data: targetData, borderColor: '#e74c3c', borderDash: [5,5], backgroundColor: 'transparent', fill: false, pointRadius: 0 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true }
+    });
+}
+
+function renderStackedBarChart(canvasId, labels, datasets, yLabel) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: datasets },
+        options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: yLabel } } } }
+    });
+}
+
+function renderDualBarChart(canvasId, labels, data1, data2) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [
+            { label: 'Unique Resources', data: data1, backgroundColor: '#3498db', yAxisID: 'y' },
+            { label: 'Avg Hours / Resource', data: data2, backgroundColor: '#e67e22', yAxisID: 'y1', type: 'line', fill: false, tension: 0.3 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, scales: { y: { title: { display: true, text: 'Resources' } }, y1: { position: 'right', title: { display: true, text: 'Hours' }, grid: { drawOnChartArea: false } } } }
+    });
+}
+
+function renderStackedPercentageBar(canvasId, labels, datasets, title) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: datasets },
+        options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Percentage (%)' }, max: 100, ticks: { callback: (val) => val + '%' } } }, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} bugs (${((ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)` } } } }
+    });
+}
+
 async function renderHistoricalAnalyticsView() {
     const container = document.getElementById('historical-analytics-view');
-    if (!container) {
-        console.error("Historical analytics view container not found");
-        return;
-    }
+    if (!container) return;
 
     let historicalData = await loadHistoricalSummary();
     if (!historicalData || historicalData.length === 0) {
@@ -1521,92 +1615,91 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    // Ensure canvas elements exist (create them if missing)
-    let cycleCanvas = document.getElementById('cycleTimeChart');
-    let storiesCanvas = document.getElementById('storiesBugsChart');
-    
-    if (!cycleCanvas) {
-        const chartDiv = document.createElement('div');
-        chartDiv.style.flex = "1";
-        chartDiv.style.minWidth = "300px";
-        chartDiv.style.background = "white";
-        chartDiv.style.borderRadius = "12px";
-        chartDiv.style.padding = "15px";
-        chartDiv.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-        cycleCanvas = document.createElement('canvas');
-        cycleCanvas.id = 'cycleTimeChart';
-        cycleCanvas.width = 400;
-        cycleCanvas.height = 300;
-        chartDiv.appendChild(cycleCanvas);
-        container.prepend(chartDiv);
-    }
-    
-    if (!storiesCanvas) {
-        const chartDiv = document.createElement('div');
-        chartDiv.style.flex = "1";
-        chartDiv.style.minWidth = "300px";
-        chartDiv.style.background = "white";
-        chartDiv.style.borderRadius = "12px";
-        chartDiv.style.padding = "15px";
-        chartDiv.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-        storiesCanvas = document.createElement('canvas');
-        storiesCanvas.id = 'storiesBugsChart';
-        storiesCanvas.width = 400;
-        storiesCanvas.height = 300;
-        chartDiv.appendChild(storiesCanvas);
-        container.appendChild(chartDiv);
-    }
-
+    // Sort by iteration name (chronological)
     historicalData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
     const labels = historicalData.map(d => d.iterationName);
-    const cycleTimes = historicalData.map(d => d.avgCycleTime);
-    const storiesCount = historicalData.map(d => d.completedStories);
-    const bugsCount = historicalData.map(d => d.internalBugs + d.uatBugs);
-    
-    const cycleCtx = cycleCanvas.getContext('2d');
-    const storiesCtx = storiesCanvas.getContext('2d');
-    
-    // Destroy existing charts only if they are Chart instances
-    if (window.cycleTimeChart && typeof window.cycleTimeChart.destroy === 'function') {
-        window.cycleTimeChart.destroy();
+
+    // --- 1. Effort Variance ---
+    const effortVariances = historicalData.map(d => d.effortVariance);
+    renderLineChart('effortVarianceChart', labels, effortVariances, 'Effort Variance %', '#f39c12');
+
+    // --- 2. Stacked Bar: Dev Actual vs Test Actual ---
+    const devActuals = historicalData.map(d => d.totalDevActual || 0);
+    const testActuals = historicalData.map(d => d.totalTestActual || 0);
+    renderStackedBarChart('workloadStackedChart', labels, [
+        { label: 'Dev Actual Hours', data: devActuals, backgroundColor: '#3498db' },
+        { label: 'Test Actual Hours', data: testActuals, backgroundColor: '#2ecc71' }
+    ], 'Hours');
+
+    // --- 3. Resource Capacity (Unique Resources & Avg Hours/Resource) ---
+    const uniqueResources = historicalData.map(d => d.uniqueResourcesCount || 0);
+    const avgHoursPerResource = historicalData.map(d => d.avgHoursPerResource || 0);
+    renderDualBarChart('resourceChart', labels, uniqueResources, avgHoursPerResource);
+
+    // --- 4. DRE Trend with 15% target line ---
+    const dreValues = historicalData.map(d => d.dre);
+    renderLineChartWithTarget('dreTrendChart', labels, dreValues, 'DRE %', '#27ae60', 15);
+
+    // --- 5. Rework Ratio ---
+    const reworkRatios = historicalData.map(d => d.reworkRatio !== undefined ? d.reworkRatio : 0);
+    renderLineChart('reworkRatioChart', labels, reworkRatios, 'Rework Ratio %', '#e67e22');
+
+    // --- 6. Bug Severity & Type (100% Stacked Bar) ---
+    // Prepare severity datasets
+    const severityCritical = historicalData.map(d => d.bugSeverity?.critical || 0);
+    const severityHigh = historicalData.map(d => d.bugSeverity?.high || 0);
+    const severityMedium = historicalData.map(d => d.bugSeverity?.medium || 0);
+    const severityLow = historicalData.map(d => d.bugSeverity?.low || 0);
+    renderStackedPercentageBar('bugSeverityChart', labels, [
+        { label: 'Critical', data: severityCritical, backgroundColor: '#c0392b' },
+        { label: 'High', data: severityHigh, backgroundColor: '#e67e22' },
+        { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
+        { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
+    ], 'Bug Severity');
+
+    // (Optional) Add Bug Type as a separate chart or combine? I'll keep separate for clarity.
+    // But we can also add a second small chart for Generic vs Specific bugs.
+    // Let's add a small sub-chart inside the same card if needed. For simplicity, we'll create another canvas inside the same card.
+    const bugTypeCanvasId = 'bugTypeChart';
+    let bugTypeCanvas = document.getElementById(bugTypeCanvasId);
+    if (!bugTypeCanvas) {
+        const parentCard = document.getElementById('bugSeverityChart').closest('.chart-card');
+        const p = document.createElement('p');
+        p.innerHTML = '<h4>Bug Type: Generic vs Specific</h4>';
+        const canvas = document.createElement('canvas');
+        canvas.id = bugTypeCanvasId;
+        canvas.width = 400;
+        canvas.height = 200;
+        parentCard.appendChild(p);
+        parentCard.appendChild(canvas);
+        bugTypeCanvas = canvas;
     }
-    if (window.storiesBugsChart && typeof window.storiesBugsChart.destroy === 'function') {
-        window.storiesBugsChart.destroy();
-    }
-    
-    window.cycleTimeChart = new Chart(cycleCtx, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Avg Cycle Time (days)', data: cycleTimes, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', tension: 0.3, fill: true }] },
-        options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.raw} days` } } } }
-    });
-    
-    window.storiesBugsChart = new Chart(storiesCtx, {
-        type: 'bar',
-        data: { labels, datasets: [
-            { label: 'Completed Stories', data: storiesCount, backgroundColor: '#2ecc71' },
-            { label: 'Total Bugs (Internal+UAT)', data: bugsCount, backgroundColor: '#e74c3c' }
-        ] },
-        options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } } } }
-    });
-    
+    const genericBugs = historicalData.map(d => d.bugTypeCount?.generic || 0);
+    const specificBugs = historicalData.map(d => d.bugTypeCount?.specific || 0);
+    renderStackedPercentageBar(bugTypeCanvasId, labels, [
+        { label: 'Generic Bugs', data: genericBugs, backgroundColor: '#e67e22' },
+        { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
+    ], 'Bug Type');
+
+    // --- Render Summary Table (existing) ---
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
-            <th style="padding:12px;">Iteration</th><th>Stories (Total)</th><th>Completed</th><th>Avg Cycle (days)</th><th>Effort Variance %</th><th>DRE %</th><th>Internal Bugs</th><th>UAT Bugs</th>
+            <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
         </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
-            <td style="text-align:center;">${d.totalStories}</td>
-            <td style="text-align:center;">${d.completedStories}</td>
+            <td style="text-align:center;">${d.completedStories} / ${d.totalStories}</td>
             <td style="text-align:center;">${d.avgCycleTime}</td>
             <td style="text-align:center; color:${d.effortVariance > 15 ? '#e74c3c' : '#27ae60'};">${d.effortVariance}%</td>
             <td style="text-align:center; color:${d.dre < 85 ? '#e67e22' : '#27ae60'};">${d.dre}%</td>
-            <td style="text-align:center;">${d.internalBugs}</td>
-            <td style="text-align:center;">${d.uatBugs}</td>
+            <td style="text-align:center; color:${d.reworkRatio > 15 ? '#e74c3c' : '#27ae60'};">${d.reworkRatio}%</td>
+            <td style="text-align:center;">${d.totalDevActual || 0}</td>
+            <td style="text-align:center;">${d.totalTestActual || 0}</td>
+            <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
         </tr>`;
     });
     tableHtml += `</tbody></table>`;
-    
     let existingTable = document.getElementById('historicalSummaryTable');
     if (!existingTable) {
         existingTable = document.createElement('div');
