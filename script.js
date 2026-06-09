@@ -739,7 +739,7 @@ function renderBusinessView() {
                         <b>Tester Lead:</b> ${us.testerLead} | 
                         <b style="color: #8e44ad;">DB Mod:</b> ${us.dbEffort.names}
                     </p>
-    </td>
+    </table>
     <thead>
         <tr>
             <th>Type</th>
@@ -1259,13 +1259,14 @@ function renderNotTestedView() {
 
                     <h5 style="margin: 10px 0;">Tasks Timeline:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
-                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th></tr></thead>
+                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th> </tr></thead>
                         <tbody>
                             ${sortedTasks.map(t => {
                                 const tsTotal = (parseFloat(t['TimeSheet_DevActualTime']) || 0) + (parseFloat(t['TimeSheet_TestingActualTime']) || 0);
                                 const est = parseFloat(t['Original Estimation']) || 0;
                                 const delay = calculateHourDiff(t.expectedStart, t['Activated Date']);
-                                return `<tr>
+                                return `
+                                <tr>
                                     <td>${t['ID']}</td>
                                     <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t['Title']}">${t['Title'] || 'N/A'}</td>
                                     <td>${t['Activity']}</td>
@@ -1313,7 +1314,7 @@ function updateIterationDropdown() {
     select.innerHTML = '<option value="">-- Select Iteration --</option>';
     savedQueries.forEach(config => {
         const option = document.createElement('option');
-        option.value = JSON.stringify({ org: config.org || "", project: config.project || "", queryId: config.id || "" });
+        option.value = JSON.stringify({ org: config.org || "", project: config.project || "", id: config.id || "" });
         option.textContent = config.name || `${config.project} - Query`;
         select.appendChild(option);
     });
@@ -1330,7 +1331,7 @@ async function fetchFromAzure() {
     statusDiv.innerText = "⏳ Connecting to Azure DevOps...";
     try {
         const authHeader = { 'Authorization': 'Basic ' + btoa(':' + pat) };
-        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
+        const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
         const wiqlRes = await fetch(wiqlUrl, { headers: authHeader });
         if (!wiqlRes.ok) throw new Error(`WIQL error: ${wiqlRes.status}`);
         const wiqlData = await wiqlRes.json();
@@ -1404,8 +1405,8 @@ async function fetchIterationSummary(config) {
         allItems.push(...detailsData.value);
     }
     const rawIterationData = allItems.map(item => mapAzureFields(item));
-    const stories = buildStoriesFromRawData(rawIterationData);
-    calculateMetricsForStories(stories);
+    const stories = buildStoriesFromRawDataForHistory(rawIterationData);
+    calculateMetricsForStoriesForHistory(stories);
     let totalStories = stories.length;
     let totalEst = 0, totalAct = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1480,7 +1481,7 @@ async function uploadHistoricalSummary(summaries) {
             const data = await res.json();
             sha = data.sha;
         }
-    } catch (e) { /* file may not exist */ }
+    } catch (e) { /* file does not exist, sha remains empty */ }
     await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
         method: 'PUT',
         headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
@@ -1497,35 +1498,84 @@ async function loadHistoricalSummary() {
         if (res.ok) {
             const content = await res.text();
             return JSON.parse(content);
+        } else if (res.status === 404) {
+            console.log("No historical summary file yet.");
         }
-    } catch (e) { console.warn("No historical file yet"); }
+    } catch (e) {
+        console.warn("Error loading historical summary:", e);
+    }
     const local = localStorage.getItem('historical_summaries');
     return local ? JSON.parse(local) : [];
 }
 
 async function renderHistoricalAnalyticsView() {
     const container = document.getElementById('historical-analytics-view');
-    if (!container) return;
+    if (!container) {
+        console.error("Historical analytics view container not found");
+        return;
+    }
+
     let historicalData = await loadHistoricalSummary();
     if (!historicalData || historicalData.length === 0) {
         container.innerHTML = `<div class="card"><p>No historical data available. Please click "Sync All Iterations Data" first.</p></div>`;
         return;
     }
+
+    // Ensure canvas elements exist (create them if missing)
+    let cycleCanvas = document.getElementById('cycleTimeChart');
+    let storiesCanvas = document.getElementById('storiesBugsChart');
+    
+    if (!cycleCanvas) {
+        const chartDiv = document.createElement('div');
+        chartDiv.style.flex = "1";
+        chartDiv.style.minWidth = "300px";
+        chartDiv.style.background = "white";
+        chartDiv.style.borderRadius = "12px";
+        chartDiv.style.padding = "15px";
+        chartDiv.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+        cycleCanvas = document.createElement('canvas');
+        cycleCanvas.id = 'cycleTimeChart';
+        cycleCanvas.width = 400;
+        cycleCanvas.height = 300;
+        chartDiv.appendChild(cycleCanvas);
+        container.prepend(chartDiv);
+    }
+    
+    if (!storiesCanvas) {
+        const chartDiv = document.createElement('div');
+        chartDiv.style.flex = "1";
+        chartDiv.style.minWidth = "300px";
+        chartDiv.style.background = "white";
+        chartDiv.style.borderRadius = "12px";
+        chartDiv.style.padding = "15px";
+        chartDiv.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+        storiesCanvas = document.createElement('canvas');
+        storiesCanvas.id = 'storiesBugsChart';
+        storiesCanvas.width = 400;
+        storiesCanvas.height = 300;
+        chartDiv.appendChild(storiesCanvas);
+        container.appendChild(chartDiv);
+    }
+
     historicalData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
     const labels = historicalData.map(d => d.iterationName);
     const cycleTimes = historicalData.map(d => d.avgCycleTime);
     const storiesCount = historicalData.map(d => d.completedStories);
     const bugsCount = historicalData.map(d => d.internalBugs + d.uatBugs);
-    const cycleCtx = document.getElementById('cycleTimeChart').getContext('2d');
-    const storiesCtx = document.getElementById('storiesBugsChart').getContext('2d');
-    if (cycleTimeChart) cycleTimeChart.destroy();
-    if (storiesBugsChart) storiesBugsChart.destroy();
-    cycleTimeChart = new Chart(cycleCtx, {
+    
+    const cycleCtx = cycleCanvas.getContext('2d');
+    const storiesCtx = storiesCanvas.getContext('2d');
+    
+    if (window.cycleTimeChart) window.cycleTimeChart.destroy();
+    if (window.storiesBugsChart) window.storiesBugsChart.destroy();
+    
+    window.cycleTimeChart = new Chart(cycleCtx, {
         type: 'line',
         data: { labels, datasets: [{ label: 'Avg Cycle Time (days)', data: cycleTimes, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', tension: 0.3, fill: true }] },
         options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.raw} days` } } } }
     });
-    storiesBugsChart = new Chart(storiesCtx, {
+    
+    window.storiesBugsChart = new Chart(storiesCtx, {
         type: 'bar',
         data: { labels, datasets: [
             { label: 'Completed Stories', data: storiesCount, backgroundColor: '#2ecc71' },
@@ -1533,10 +1583,11 @@ async function renderHistoricalAnalyticsView() {
         ] },
         options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } } } }
     });
+    
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Stories (Total)</th><th>Completed</th><th>Avg Cycle (days)</th><th>Effort Variance %</th><th>DRE %</th><th>Internal Bugs</th><th>UAT Bugs</th>
-        <tr></thead><tbody>`;
+        </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
@@ -1550,18 +1601,18 @@ async function renderHistoricalAnalyticsView() {
         </tr>`;
     });
     tableHtml += `</tbody></table>`;
-    const existingTable = container.querySelector('#historicalSummaryTable');
-    if (existingTable) existingTable.innerHTML = tableHtml;
-    else {
-        const div = document.createElement('div');
-        div.id = 'historicalSummaryTable';
-        div.innerHTML = tableHtml;
-        container.appendChild(div);
+    
+    let existingTable = document.getElementById('historicalSummaryTable');
+    if (!existingTable) {
+        existingTable = document.createElement('div');
+        existingTable.id = 'historicalSummaryTable';
+        container.appendChild(existingTable);
     }
+    existingTable.innerHTML = tableHtml;
 }
 
 // Helper for building stories from raw data without side effects (for historical sync)
-function buildStoriesFromRawData(data) {
+function buildStoriesFromRawDataForHistory(data) {
     const stories = [];
     let currentStory = null;
     data.forEach(row => {
@@ -1590,8 +1641,8 @@ function buildStoriesFromRawData(data) {
     return stories;
 }
 
-// Duplicate of calculateMetrics but without side effects (for historical sync)
-function calculateMetricsForStories(stories) {
+// Helper for calculating metrics without side effects (for historical sync)
+function calculateMetricsForStoriesForHistory(stories) {
     stories.forEach(us => {
         let devOrig = 0, devActual = 0, testOrig = 0, testActual = 0;
         let dbOrig = 0, dbActual = 0, dbNames = new Set();
