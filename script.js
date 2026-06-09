@@ -1566,8 +1566,13 @@ async function renderHistoricalAnalyticsView() {
     const cycleCtx = cycleCanvas.getContext('2d');
     const storiesCtx = storiesCanvas.getContext('2d');
     
-    if (window.cycleTimeChart) window.cycleTimeChart.destroy();
-    if (window.storiesBugsChart) window.storiesBugsChart.destroy();
+    // Destroy existing charts only if they are Chart instances
+    if (window.cycleTimeChart && typeof window.cycleTimeChart.destroy === 'function') {
+        window.cycleTimeChart.destroy();
+    }
+    if (window.storiesBugsChart && typeof window.storiesBugsChart.destroy === 'function') {
+        window.storiesBugsChart.destroy();
+    }
     
     window.cycleTimeChart = new Chart(cycleCtx, {
         type: 'line',
