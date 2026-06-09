@@ -49,7 +49,32 @@
         .login-card button:hover { background: #2980b9; }
         
         /* إخفاء عناصر الإدارة افتراضياً */
-        .admin-only { display: none; } 
+        .admin-only { display: none; }
+
+        /* تنسيقات عامة للبطاقات */
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .chart-card:hover {
+            transform: translateY(-2px);
+        }
+        .chart-card h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.1em;
+            border-left: 4px solid #3498db;
+            padding-left: 12px;
+        }
+        .chart-card h4 {
+            margin: 15px 0 5px 0;
+            color: #555;
+            font-size: 0.95em;
+        }
     </style>
 </head>
 <body>
@@ -116,16 +141,50 @@
         <div id="people-view" class="view" style="display:none;"></div>
         <div id="not-tested-view" class="view" style="display:none;"></div>
         
+        <!-- Historical Analytics View with all charts -->
         <div id="historical-analytics-view" class="view" style="display:none; padding: 20px;">
-            <h2>Cross‑Iteration Performance Trends</h2>
-            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px; background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <canvas id="cycleTimeChart" width="400" height="300"></canvas>
+            <h2>📊 Cross‑Iteration Performance Trends</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 25px;">
+                
+                <!-- Chart 1: Effort Variance Trend -->
+                <div class="chart-card">
+                    <h3>📈 Effort Variance Trend</h3>
+                    <canvas id="effortVarianceChart" width="400" height="250"></canvas>
                 </div>
-                <div style="flex: 1; min-width: 300px; background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <canvas id="storiesBugsChart" width="400" height="300"></canvas>
+                
+                <!-- Chart 2: Dev vs Test Actual Hours (Stacked Bar) -->
+                <div class="chart-card">
+                    <h3>⚙️ Workload Breakdown (Dev vs Test)</h3>
+                    <canvas id="workloadStackedChart" width="400" height="250"></canvas>
+                </div>
+                
+                <!-- Chart 3: Resource Capacity & Workload -->
+                <div class="chart-card">
+                    <h3>👥 Resource Utilization</h3>
+                    <canvas id="resourceChart" width="400" height="250"></canvas>
+                </div>
+                
+                <!-- Chart 4: Defect Leakage / DRE Trend with 15% Target -->
+                <div class="chart-card">
+                    <h3>🛡️ Defect Removal Efficiency (DRE) & Target</h3>
+                    <canvas id="dreTrendChart" width="400" height="250"></canvas>
+                </div>
+                
+                <!-- Chart 5: Rework Ratio Trend -->
+                <div class="chart-card">
+                    <h3>🔁 Rework Ratio Trend</h3>
+                    <canvas id="reworkRatioChart" width="400" height="250"></canvas>
+                </div>
+                
+                <!-- Chart 6: Bug Severity & Type (100% Stacked Bar) -->
+                <div class="chart-card">
+                    <h3>🐞 Bug Severity Distribution</h3>
+                    <canvas id="bugSeverityChart" width="400" height="250"></canvas>
+                    <h4>Bug Type: Generic vs Specific</h4>
+                    <canvas id="bugTypeChart" width="400" height="200"></canvas>
                 </div>
             </div>
+            
             <div id="historicalSummaryTable" style="margin-top: 30px; overflow-x: auto;"></div>
         </div>
 
