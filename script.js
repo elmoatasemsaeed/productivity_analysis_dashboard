@@ -1387,7 +1387,7 @@ async function fetchIterationSummary(config) {
     const pat = localStorage.getItem('azure_pat');
     if (!pat) throw new Error("Azure PAT missing");
     const authHeader = { 'Authorization': 'Basic ' + btoa(':' + pat) };
-    const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.queryId}?api-version=6.0`;
+    const wiqlUrl = `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql/${config.id}?api-version=6.0`;
     const wiqlRes = await fetch(wiqlUrl, { headers: authHeader });
     if (!wiqlRes.ok) throw new Error(`WIQL failed: ${wiqlRes.status}`);
     const wiqlData = await wiqlRes.json();
