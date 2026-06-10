@@ -1,31 +1,13 @@
 [
   {
-    "id": "23d026f3-54d8-43d6-9cff-54cbac7e6ee6",
-    "name": "April 8-23",
+    "id": "468584bc-30ee-4e1e-a0af-ffe623d614ac",
+    "name": "December 29-13",
     "org": "NTDotNet",
     "project": "LDM"
   },
   {
-    "id": "c01f4197-e6c1-44d4-8307-158cf8e92a43",
-    "name": "April 26-10",
-    "org": "NTDotNet",
-    "project": "LDM"
-  },
-  {
-    "id": "51a21f5c-8154-4a7b-af4b-0a41dbbe75f3",
-    "name": "March 24-7",
-    "org": "NTDotNet",
-    "project": "LDM"
-  },
-  {
-    "id": "7629d345-593b-4174-b338-6d223e309048",
-    "name": "March 3-17",
-    "org": "NTDotNet",
-    "project": "LDM"
-  },
-  {
-    "id": "09bb64c3-8c1b-49ae-acab-55a68697fcdc",
-    "name": "Feb 16-2",
+    "id": "d17a2a10-25e6-43d2-9017-75cb6f404942",
+    "name": "January 14-28",
     "org": "NTDotNet",
     "project": "LDM"
   },
@@ -36,14 +18,32 @@
     "project": "LDM"
   },
   {
-    "id": "d17a2a10-25e6-43d2-9017-75cb6f404942",
-    "name": "January 14-28",
+    "id": "09bb64c3-8c1b-49ae-acab-55a68697fcdc",
+    "name": "Feb 16-2",
     "org": "NTDotNet",
     "project": "LDM"
   },
   {
-    "id": "468584bc-30ee-4e1e-a0af-ffe623d614ac",
-    "name": "December 29-13",
+    "id": "7629d345-593b-4174-b338-6d223e309048",
+    "name": "March 3-17",
+    "org": "NTDotNet",
+    "project": "LDM"
+  },
+  {
+    "id": "51a21f5c-8154-4a7b-af4b-0a41dbbe75f3",
+    "name": "March 24-7",
+    "org": "NTDotNet",
+    "project": "LDM"
+  },
+  {
+    "id": "23d026f3-54d8-43d6-9cff-54cbac7e6ee6",
+    "name": "April 8-23",
+    "org": "NTDotNet",
+    "project": "LDM"
+  },
+  {
+    "id": "c01f4197-e6c1-44d4-8307-158cf8e92a43",
+    "name": "April 26-10",
     "org": "NTDotNet",
     "project": "LDM"
   },
