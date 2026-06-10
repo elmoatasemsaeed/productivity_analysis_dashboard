@@ -1778,7 +1778,37 @@ function renderStackedPercentageBar(canvasId, labels, datasets, title) {
     window[canvasId + 'Chart'] = new Chart(ctx, {
         type: 'bar',
         data: { labels, datasets: datasets },
-        options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Percentage (%)' }, max: 100, ticks: { callback: (val) => val + '%' } } }, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} (${((ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)` } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    title: { display: true, text: 'Percentage (%)' },
+                    max: 100,
+                    ticks: { callback: (val) => val + '%' }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const datasetIndex = context.datasetIndex;
+                            const dataIndex = context.dataIndex;
+                            const rawValue = context.raw;
+                            // Sum all datasets for the same label (iteration)
+                            let totalForLabel = 0;
+                            context.chart.data.datasets.forEach(dataset => {
+                                totalForLabel += dataset.data[dataIndex] || 0;
+                            });
+                            const percentage = totalForLabel > 0 ? (rawValue / totalForLabel) * 100 : 0;
+                            return `${context.dataset.label}: ${rawValue} (${percentage.toFixed(1)}%)`;
+                        }
+                    }
+                }
+            }
+        }
     });
 }
 
