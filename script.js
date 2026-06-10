@@ -1737,7 +1737,24 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    historicalData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
+    // ----- الترتيب حسب azureConfigs (ترتيب الإضافة) -----
+    // 1. الحصول على أسماء التكرارات من azureConfigs حسب الترتيب الأصلي
+    const configOrder = azureConfigs.map(cfg => cfg.name);
+    
+    // 2. إنشاء خريطة لتحديد موضع كل تكرار بناءً على configOrder (القيمة الأقل تظهر أولاً)
+    const orderMap = new Map();
+    configOrder.forEach((name, idx) => {
+        orderMap.set(name, idx);
+    });
+    
+    // 3. فرز historicalData حسب الفهرس في configOrder (إن وُجد) مع وضع غير الموجود في النهاية
+    historicalData.sort((a, b) => {
+        const idxA = orderMap.has(a.iterationName) ? orderMap.get(a.iterationName) : configOrder.length;
+        const idxB = orderMap.has(b.iterationName) ? orderMap.get(b.iterationName) : configOrder.length;
+        return idxA - idxB;
+    });
+    // ----- نهاية التعديل -----
+
     const labels = historicalData.map(d => d.iterationName);
 
     // === Overall charts (aggregated) ===
@@ -1814,11 +1831,11 @@ async function renderHistoricalAnalyticsView() {
         });
     }
     
-    // Summary table (unchanged)
+    // Summary table
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-        </td></thead><tbody>`;
+        </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
