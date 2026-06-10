@@ -73,6 +73,64 @@
             color: #555;
             font-size: 0.95em;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #2c3e50;
+            color: white;
+        }
+        button {
+            cursor: pointer;
+            background: #3498db;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .alert-red {
+            background-color: #ffebee;
+            color: #c0392b;
+            font-weight: bold;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .business-section {
+            margin-bottom: 40px;
+        }
+        .business-area-title {
+            background: #2980b9;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            margin-top: 0;
+        }
+        nav button {
+            background: #34495e;
+            margin: 0 2px;
+        }
+        nav button:hover {
+            background: #2c3e50;
+        }
     </style>
 </head>
 <body>
@@ -138,52 +196,34 @@
         <div id="people-view" class="view" style="display:none;"></div>
         <div id="not-tested-view" class="view" style="display:none;"></div>
         
-        <!-- Historical Analytics View with new line charts & resource distribution -->
+        <!-- Historical Analytics View with overall + detailed charts -->
         <div id="historical-analytics-view" class="view" style="display:none; padding: 20px;">
             <h2>📊 Cross‑Iteration Performance Trends</h2>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 25px;">
                 
-                <!-- 1. Effort Variance (EV) Line Chart -->
-                <div class="chart-card">
-                    <h3>📉 Effort Variance (EV) %</h3>
-                    <canvas id="evLineChart" width="400" height="250"></canvas>
+                <!-- Overall Charts -->
+                <div class="chart-card"><h3>📉 Effort Variance (EV) % - Overall</h3><canvas id="evLineChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>🔄 Rework Ratio (RW) % - Overall</h3><canvas id="rwLineChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>⏱️ Cycle Time (CT) - days (Overall)</h3><canvas id="ctLineChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>⚙️ Average Workload (hours/resource) - Overall</h3><canvas id="avgWorkloadLineChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>👥 Resource Distribution (Headcount) - Overall</h3><canvas id="resourceDistChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>🐞 Bug Severity Distribution - Overall</h3><canvas id="bugSeverityChart" width="400" height="250"></canvas></div>
+                <div class="chart-card"><h3>🏷️ Bug Type: Generic vs Specific - Overall</h3><canvas id="bugTypeChart" width="400" height="250"></canvas></div>
+            </div>
+
+            <!-- Detailed Charts Section for selected Business Area -->
+            <div id="detailedChartsSection" style="margin-top: 40px;">
+                <h3>📊 Detailed Trends by Business Area</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 25px;">
+                    <div class="chart-card"><h3>📉 Effort Variance (EV) % - Detailed</h3><canvas id="filteredEvChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>🔄 Rework Ratio (RW) % - Detailed</h3><canvas id="filteredRwChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>⏱️ Cycle Time (CT) - days (Detailed)</h3><canvas id="filteredCtChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>⚙️ Average Workload (hours/resource) - Detailed</h3><canvas id="filteredAvgWorkloadChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>👥 Resource Distribution - Detailed</h3><canvas id="filteredResourceDistChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>🐞 Bug Severity Distribution - Detailed</h3><canvas id="filteredBugSeverityChart" width="400" height="250"></canvas></div>
+                    <div class="chart-card"><h3>🏷️ Bug Type: Generic vs Specific - Detailed</h3><canvas id="filteredBugTypeChart" width="400" height="250"></canvas></div>
                 </div>
-                
-                <!-- 2. Rework Ratio (RW) Line Chart -->
-                <div class="chart-card">
-                    <h3>🔄 Rework Ratio (RW) %</h3>
-                    <canvas id="rwLineChart" width="400" height="250"></canvas>
-                </div>
-                
-                <!-- 3. Cycle Time (CT) Line Chart (days) -->
-                <div class="chart-card">
-                    <h3>⏱️ Cycle Time (CT) - days</h3>
-                    <canvas id="ctLineChart" width="400" height="250"></canvas>
-                </div>
-                
-                <!-- 4. Average Workload (hours per resource) -->
-                <div class="chart-card">
-                    <h3>⚙️ Average Workload (hours / resource)</h3>
-                    <canvas id="avgWorkloadLineChart" width="400" height="250"></canvas>
-                </div>
-                
-                <!-- 5. Resource Distribution: Dev / Test / DB (stacked bar) -->
-                <div class="chart-card">
-                    <h3>👥 Resource Distribution (Headcount)</h3>
-                    <canvas id="resourceDistChart" width="400" height="250"></canvas>
-                </div>
-                
-                <!-- 6. Bug Severity Distribution (stacked %) -->
-                <div class="chart-card">
-                    <h3>🐞 Bug Severity Distribution</h3>
-                    <canvas id="bugSeverityChart" width="400" height="250"></canvas>
-                </div>
-                
-                <!-- 7. Bug Type: Generic vs Specific (stacked %) -->
-                <div class="chart-card">
-                    <h3>🏷️ Bug Type: Generic vs Specific</h3>
-                    <canvas id="bugTypeChart" width="400" height="250"></canvas>
-                </div>
+                <div id="filteredChartsMessage" style="margin:10px 0; font-style:italic;"></div>
             </div>
             
             <div id="historicalSummaryTable" style="margin-top: 30px; overflow-x: auto;"></div>
@@ -198,9 +238,9 @@
                 <input type="text" id="azQueryName" placeholder="Friendly Name (e.g. Sprint 25)" style="width:100%; padding:8px; margin-bottom:10px;">
                 <button onclick="addAzureConfig()">Add Query</button>
             </div>
-            <table style="margin-top: 20px; width: 100%; border-collapse: collapse;">
+            <table style="margin-top: 20px;">
                 <thead>
-                    <tr style="background:#eee;">
+                    <tr>
                         <th>Name</th>
                         <th>Org/Project</th>
                         <th>Query ID</th>
@@ -222,9 +262,9 @@
                 </select>
                 <button onclick="addUser()">Add/Update User</button>
             </div>
-            <table style="margin-top: 20px; width: 100%; border-collapse: collapse;">
+            <table style="margin-top: 20px;">
                 <thead>
-                    <tr style="background:#eee;">
+                    <tr>
                         <th>Username</th>
                         <th>Password</th>
                         <th>Role</th>
