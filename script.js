@@ -210,7 +210,7 @@ function logout() {
     location.reload();
 }
 
-// ==================== DATA PROCESSING (Existing, unchanged) ====================
+// ==================== DATA PROCESSING ====================
 function processData() {
     processedStories = [];
     let currentStory = null;
@@ -547,7 +547,7 @@ function calculateCycleTimeDays(startDate, endDate) {
     return days;
 }
 
-// ==================== RENDERING FUNCTIONS (Existing, unchanged) ====================
+// ==================== RENDERING FUNCTIONS ====================
 
 function groupBy(arr, key) {
     return arr.reduce((acc, obj) => {
@@ -739,7 +739,7 @@ function renderBusinessView() {
                         <b>Tester Lead:</b> ${us.testerLead} | 
                         <b style="color: #8e44ad;">DB Mod:</b> ${us.dbEffort.names}
                     </p>
-    </table>
+    <table>
     <thead>
         <tr>
             <th>Type</th>
@@ -1260,7 +1260,7 @@ function renderNotTestedView() {
 
                     <h5 style="margin: 10px 0;">Tasks Timeline:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
-                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th> </tr></thead>
+                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th>  </tr></thead>
                         <tbody>
                             ${sortedTasks.map(t => {
                                 const tsTotal = (parseFloat(t['TimeSheet_DevActualTime']) || 0) + (parseFloat(t['TimeSheet_TestingActualTime']) || 0);
@@ -1287,7 +1287,7 @@ function renderNotTestedView() {
     container.innerHTML = html;
 }
 
-// ==================== NEW: Historical Analytics Functions ====================
+// ==================== HISTORICAL ANALYTICS FUNCTIONS ====================
 
 async function loadConfigsFromCloud() {
     if (!githubToken) return;
@@ -1384,7 +1384,6 @@ function mapAzureFields(item) {
     };
 }
 
-// Modified fetchIterationSummary to include per business area breakdown
 async function fetchIterationSummary(config) {
     const pat = localStorage.getItem('azure_pat');
     if (!pat) throw new Error("Azure PAT missing");
@@ -1409,7 +1408,6 @@ async function fetchIterationSummary(config) {
     const stories = buildStoriesFromRawDataForHistory(rawIterationData);
     calculateMetricsForStoriesForHistory(stories);
 
-    // Aggregate overall iteration metrics
     let totalStories = stories.length;
     let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1418,7 +1416,7 @@ async function fetchIterationSummary(config) {
     let uniqueResources = new Set();
     let bugSeverity = { critical: 0, high: 0, medium: 0, low: 0 };
     let bugTypeCount = { generic: 0, specific: 0 };
-    let businessAreasMap = new Map(); // key: area, value: metrics object
+    let businessAreasMap = new Map();
 
     stories.forEach(us => {
         const area = us.businessArea || 'General';
@@ -1468,7 +1466,6 @@ async function fetchIterationSummary(config) {
         areaMetrics.bugTypeCount.generic += us.rework.generic.count;
         areaMetrics.bugTypeCount.specific += us.rework.specific.count;
 
-        // Overall metrics
         totalEst += est;
         totalDevActual += devAct;
         totalTestActual += testAct;
@@ -1497,7 +1494,6 @@ async function fetchIterationSummary(config) {
     const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
     const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
 
-    // Build business areas summary
     const businessAreasSummary = {};
     for (let [area, m] of businessAreasMap.entries()) {
         const areaAvgCycle = m.cycleCount ? (m.totalCycleTime / m.cycleCount).toFixed(1) : 0;
@@ -1568,9 +1564,14 @@ async function syncAllIterationsData() {
         }
     }
     if (summaries.length) {
-        await uploadHistoricalSummary(summaries);
-        localStorage.setItem('historical_summaries', JSON.stringify(summaries));
-        statusDiv.innerText = `✅ Synced ${summaries.length} iterations to historical data.`;
+        try {
+            await uploadHistoricalSummary(summaries);
+            localStorage.setItem('historical_summaries', JSON.stringify(summaries));
+            statusDiv.innerText = `✅ Synced ${summaries.length} iterations to historical data.`;
+        } catch (uploadErr) {
+            statusDiv.innerText = `❌ Upload failed: ${uploadErr.message}`;
+            console.error(uploadErr);
+        }
     } else {
         statusDiv.innerText = "❌ No summary data collected.";
     }
@@ -1579,7 +1580,8 @@ async function syncAllIterationsData() {
 
 async function uploadHistoricalSummary(summaries) {
     if (!githubToken) return;
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
+    const jsonString = JSON.stringify(summaries, null, 2);
+    const content = btoa(unescape(encodeURIComponent(jsonString)));
     let sha = "";
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
@@ -1588,13 +1590,35 @@ async function uploadHistoricalSummary(summaries) {
         if (res.ok) {
             const data = await res.json();
             sha = data.sha;
+        } else if (res.status === 404) {
+            sha = "";
+        } else {
+            throw new Error(`Failed to fetch file info: ${res.status}`);
         }
-    } catch (e) { /* file does not exist, sha remains empty */ }
-    await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
+    } catch (e) {
+        console.warn("Error getting sha, attempting to create new file", e);
+        sha = "";
+    }
+    
+    const body = {
+        message: "Update historical iteration summaries",
+        content: content,
+        branch: GH_CONFIG.branch
+    };
+    if (sha) body.sha = sha;
+    
+    const putRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
         method: 'PUT',
         headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Update historical iteration summaries", content: content, sha: sha, branch: GH_CONFIG.branch })
+        body: JSON.stringify(body)
     });
+    
+    if (!putRes.ok) {
+        const errorText = await putRes.text();
+        console.error("GitHub upload failed:", putRes.status, errorText);
+        throw new Error(`GitHub upload failed: ${putRes.status} - ${errorText}`);
+    }
+    console.log("Historical summary uploaded successfully");
 }
 
 async function loadHistoricalSummary() {
@@ -1616,7 +1640,6 @@ async function loadHistoricalSummary() {
     return local ? JSON.parse(local) : [];
 }
 
-// Chart helper functions
 function renderLineChart(canvasId, labels, data, label, color) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
@@ -1674,7 +1697,6 @@ function renderStackedPercentageBar(canvasId, labels, datasets, title) {
     });
 }
 
-// Modified renderHistoricalAnalyticsView with business area selector
 async function renderHistoricalAnalyticsView() {
     const container = document.getElementById('historical-analytics-view');
     if (!container) return;
@@ -1685,7 +1707,6 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    // Extract all business areas from data
     let allBusinessAreas = new Set();
     historicalData.forEach(iteration => {
         if (iteration.businessAreas) {
@@ -1698,7 +1719,6 @@ async function renderHistoricalAnalyticsView() {
     }
     const businessAreasList = Array.from(allBusinessAreas).sort();
 
-    // Create or update selector div
     let selectorDiv = document.getElementById('businessAreaSelector');
     if (!selectorDiv) {
         selectorDiv = document.createElement('div');
@@ -1754,11 +1774,9 @@ async function renderHistoricalAnalyticsView() {
         filteredData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
         const labels = filteredData.map(d => d.iterationName);
 
-        // 1. Effort Variance
         const effortVariances = filteredData.map(d => d.effortVariance);
         renderLineChart('effortVarianceChart', labels, effortVariances, 'Effort Variance %', '#f39c12');
 
-        // 2. Stacked Bar: Dev vs Test Actual
         const devActuals = filteredData.map(d => d.totalDevActual || 0);
         const testActuals = filteredData.map(d => d.totalTestActual || 0);
         renderStackedBarChart('workloadStackedChart', labels, [
@@ -1766,20 +1784,16 @@ async function renderHistoricalAnalyticsView() {
             { label: 'Test Actual Hours', data: testActuals, backgroundColor: '#2ecc71' }
         ], 'Hours');
 
-        // 3. Resource Capacity
         const uniqueResources = filteredData.map(d => d.uniqueResourcesCount || 0);
         const avgHoursPerResource = filteredData.map(d => d.avgHoursPerResource || 0);
         renderDualBarChart('resourceChart', labels, uniqueResources, avgHoursPerResource);
 
-        // 4. DRE with target 85%
         const dreValues = filteredData.map(d => d.dre);
         renderLineChartWithTarget('dreTrendChart', labels, dreValues, 'DRE %', '#27ae60', 85);
 
-        // 5. Rework Ratio
         const reworkRatios = filteredData.map(d => d.reworkRatio !== undefined ? d.reworkRatio : 0);
         renderLineChart('reworkRatioChart', labels, reworkRatios, 'Rework Ratio %', '#e67e22');
 
-        // 6. Bug Severity Stacked Percentage
         const severityCritical = filteredData.map(d => d.bugSeverity?.critical || 0);
         const severityHigh = filteredData.map(d => d.bugSeverity?.high || 0);
         const severityMedium = filteredData.map(d => d.bugSeverity?.medium || 0);
@@ -1791,7 +1805,6 @@ async function renderHistoricalAnalyticsView() {
             { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
         ], 'Bug Severity');
 
-        // Bug Type
         const genericBugs = filteredData.map(d => d.bugTypeCount?.generic || 0);
         const specificBugs = filteredData.map(d => d.bugTypeCount?.specific || 0);
         renderStackedPercentageBar('bugTypeChart', labels, [
@@ -1799,7 +1812,6 @@ async function renderHistoricalAnalyticsView() {
             { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
         ], 'Bug Type');
 
-        // Summary Table
         let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
             <thead><tr style="background:#2c3e50; color:white;">
                 <th style="padding:12px;">Iteration</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
@@ -1813,7 +1825,7 @@ async function renderHistoricalAnalyticsView() {
                 <td style="text-align:center;">${d.totalDevActual || 0}</td>
                 <td style="text-align:center;">${d.totalTestActual || 0}</td>
                 <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-              </tr>`;
+             </tr>`;
         });
         tableHtml += `</tbody>\\n    </div>\\n</div>`;
         let existingTable = document.getElementById('historicalSummaryTable');
@@ -1834,7 +1846,6 @@ async function renderHistoricalAnalyticsView() {
     }
 }
 
-// Helper functions for historical sync (copy from original but ensure they work)
 function buildStoriesFromRawDataForHistory(data) {
     const stories = [];
     let currentStory = null;
@@ -2048,7 +2059,6 @@ function showView(viewId) {
     if (viewId === 'historical-analytics-view') renderHistoricalAnalyticsView();
 }
 
-// Holiday functions (needed for completeness)
 function addHoliday() {
     const picker = document.getElementById('holidayPicker');
     if (!picker || !picker.value) return;
