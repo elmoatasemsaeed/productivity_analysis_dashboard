@@ -1582,7 +1582,7 @@ async function uploadHistoricalSummary(summaries) {
     if (!githubToken) return;
     const jsonString = JSON.stringify(summaries, null, 2);
     const content = btoa(unescape(encodeURIComponent(jsonString)));
-    let sha = "";
+    let sha = null;
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
             headers: { 'Authorization': `token ${githubToken}` }
@@ -1590,14 +1590,12 @@ async function uploadHistoricalSummary(summaries) {
         if (res.ok) {
             const data = await res.json();
             sha = data.sha;
-        } else if (res.status === 404) {
-            sha = "";
-        } else {
+        } else if (res.status !== 404) {
             throw new Error(`Failed to fetch file info: ${res.status}`);
         }
     } catch (e) {
-        console.warn("Error getting sha, attempting to create new file", e);
-        sha = "";
+        console.warn("Error getting sha, assuming file does not exist", e);
+        sha = null;
     }
     
     const body = {
