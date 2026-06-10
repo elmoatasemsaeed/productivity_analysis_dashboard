@@ -30,8 +30,8 @@ let azureConfigsSha = "";
 let azurePAT = localStorage.getItem('az_pat') || "";
 
 // Chart instances for historical view
-let cycleTimeChart = null;
-let storiesBugsChart = null;
+let evChart = null, rwChart = null, ctChart = null, avgWorkloadChart = null;
+let resourceDistChart = null, bugSeverityChart = null, bugTypeChart = null;
 
 // --- Functions ---
 
@@ -210,7 +210,7 @@ function logout() {
     location.reload();
 }
 
-// ==================== DATA PROCESSING ====================
+// ==================== DATA PROCESSING (Existing) ====================
 function processData() {
     processedStories = [];
     let currentStory = null;
@@ -547,7 +547,7 @@ function calculateCycleTimeDays(startDate, endDate) {
     return days;
 }
 
-// ==================== RENDERING FUNCTIONS ====================
+// ==================== RENDERING FUNCTIONS (Existing unchanged except view switching) ====================
 
 function groupBy(arr, key) {
     return arr.reduce((acc, obj) => {
@@ -686,7 +686,7 @@ function renderIterationView() {
             </tr>`;
     }
 
-    html += `</tbody>\\n    </div>\\n</div>`;
+    html += `</tbody></table></div></div>`;
     container.innerHTML = html;
 }
 
@@ -839,7 +839,7 @@ function renderBusinessView() {
                                 </tr>`;
                             }).join('')}
                         </tbody>
-                    </div>`;
+                    </table>`;
 
             html += `
                 <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -1179,7 +1179,7 @@ function renderPeopleView() {
                                     <th style="padding: 12px; text-align: center;">Spec. Bugs</th>
                                     <th style="padding: 12px; text-align: center;">Gen. Bugs</th>
                                     <th style="padding: 12px; text-align: center;">Total</th>
-                                </tr>
+                                 </tr>
                             </thead>
                             <tbody>`;
             peopleList.forEach(p => {
@@ -1203,7 +1203,7 @@ function renderPeopleView() {
                         <td style="padding: 10px; text-align: center; font-weight: bold;">${totalWork.toFixed(1)}h</td>
                     </tr>`;
             });
-            tableHtml += `</tbody>\\n    </div>\\n</div>`;
+            tableHtml += `</tbody></table></div></div>`;
             return tableHtml;
         };
 
@@ -1260,7 +1260,7 @@ function renderNotTestedView() {
 
                     <h5 style="margin: 10px 0;">Tasks Timeline:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
-                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th>  </tr></thead>
+                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th> </tr></thead>
                         <tbody>
                             ${sortedTasks.map(t => {
                                 const tsTotal = (parseFloat(t['TimeSheet_DevActualTime']) || 0) + (parseFloat(t['TimeSheet_TestingActualTime']) || 0);
@@ -1280,14 +1280,15 @@ function renderNotTestedView() {
                                 </tr>`;
                             }).join('')}
                         </tbody>
-                    </div>`;
+                    </table>
+                </div>`;
         });
         html += `</div>`;
     }
     container.innerHTML = html;
 }
 
-// ==================== HISTORICAL ANALYTICS FUNCTIONS ====================
+// ==================== HISTORICAL ANALYTICS FUNCTIONS (UPDATED) ====================
 
 async function loadConfigsFromCloud() {
     if (!githubToken) return;
@@ -1408,6 +1409,7 @@ async function fetchIterationSummary(config) {
     const stories = buildStoriesFromRawDataForHistory(rawIterationData);
     calculateMetricsForStoriesForHistory(stories);
 
+    // Aggregated metrics
     let totalStories = stories.length;
     let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1416,56 +1418,16 @@ async function fetchIterationSummary(config) {
     let uniqueResources = new Set();
     let bugSeverity = { critical: 0, high: 0, medium: 0, low: 0 };
     let bugTypeCount = { generic: 0, specific: 0 };
-    let businessAreasMap = new Map();
+    
+    // Resource distribution counts
+    let devCount = 0, testerCount = 0, dbCount = 0;
+    const devSet = new Set(), testerSet = new Set(), dbSet = new Set();
 
     stories.forEach(us => {
-        const area = us.businessArea || 'General';
-        if (!businessAreasMap.has(area)) {
-            businessAreasMap.set(area, {
-                totalStories: 0,
-                totalEst: 0,
-                totalDevActual: 0,
-                totalTestActual: 0,
-                totalBugActual: 0,
-                totalCycleTime: 0,
-                cycleCount: 0,
-                totalInternalBugs: 0,
-                totalUatBugs: 0,
-                closedCount: 0,
-                uniqueResources: new Set(),
-                bugSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-                bugTypeCount: { generic: 0, specific: 0 }
-            });
-        }
-        const areaMetrics = businessAreasMap.get(area);
-        areaMetrics.totalStories++;
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
         const devAct = us.devEffort.actual;
         const testAct = us.testEffort.actual;
         const bugAct = us.rework.actualTime;
-        areaMetrics.totalEst += est;
-        areaMetrics.totalDevActual += devAct;
-        areaMetrics.totalTestActual += testAct;
-        areaMetrics.totalBugActual += bugAct;
-        if (us.cycleTime > 0) {
-            areaMetrics.totalCycleTime += us.cycleTime;
-            areaMetrics.cycleCount++;
-        }
-        areaMetrics.totalInternalBugs += us.rework.count;
-        areaMetrics.totalUatBugs += us.rework.uatBugsCount;
-        if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') areaMetrics.closedCount++;
-        if (us.devLead) areaMetrics.uniqueResources.add(us.devLead);
-        if (us.testerLead) areaMetrics.uniqueResources.add(us.testerLead);
-        us.tasks.forEach(t => {
-            if (t['Assigned To']) areaMetrics.uniqueResources.add(t['Assigned To']);
-        });
-        areaMetrics.bugSeverity.critical += us.rework.severity.critical;
-        areaMetrics.bugSeverity.high += us.rework.severity.high;
-        areaMetrics.bugSeverity.medium += us.rework.severity.medium;
-        areaMetrics.bugSeverity.low += us.rework.severity.low;
-        areaMetrics.bugTypeCount.generic += us.rework.generic.count;
-        areaMetrics.bugTypeCount.specific += us.rework.specific.count;
-
         totalEst += est;
         totalDevActual += devAct;
         totalTestActual += testAct;
@@ -1474,18 +1436,32 @@ async function fetchIterationSummary(config) {
         totalInternalBugs += us.rework.count;
         totalUatBugs += us.rework.uatBugsCount;
         if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') closedCount++;
+
         if (us.devLead) uniqueResources.add(us.devLead);
         if (us.testerLead) uniqueResources.add(us.testerLead);
         us.tasks.forEach(t => {
             if (t['Assigned To']) uniqueResources.add(t['Assigned To']);
+            const act = t['Activity'];
+            const assignee = t['Assigned To'];
+            if (assignee) {
+                if (act === 'Development') devSet.add(assignee);
+                else if (act === 'Testing') testerSet.add(assignee);
+                else if (act === 'DB Modification') dbSet.add(assignee);
+            }
         });
+
         bugSeverity.critical += us.rework.severity.critical;
         bugSeverity.high += us.rework.severity.high;
         bugSeverity.medium += us.rework.severity.medium;
         bugSeverity.low += us.rework.severity.low;
+
         bugTypeCount.generic += us.rework.generic.count;
         bugTypeCount.specific += us.rework.specific.count;
     });
+
+    devCount = devSet.size;
+    testerCount = testerSet.size;
+    dbCount = dbSet.size;
 
     const avgCycleTime = cycleCount ? (totalCycleTime / cycleCount).toFixed(1) : 0;
     const effortVariance = totalEst ? ((totalDevActual + totalTestActual - totalEst) / totalEst) * 100 : 0;
@@ -1493,33 +1469,6 @@ async function fetchIterationSummary(config) {
     const dre = totalBugs ? (totalInternalBugs / totalBugs) * 100 : 100;
     const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
     const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
-
-    const businessAreasSummary = {};
-    for (let [area, m] of businessAreasMap.entries()) {
-        const areaAvgCycle = m.cycleCount ? (m.totalCycleTime / m.cycleCount).toFixed(1) : 0;
-        const areaEffortVar = m.totalEst ? ((m.totalDevActual + m.totalTestActual - m.totalEst) / m.totalEst) * 100 : 0;
-        const areaTotalBugs = m.totalInternalBugs + m.totalUatBugs;
-        const areaDre = areaTotalBugs ? (m.totalInternalBugs / areaTotalBugs) * 100 : 100;
-        const areaReworkRatio = (m.totalDevActual + m.totalTestActual) ? (m.totalBugActual / (m.totalDevActual + m.totalTestActual)) * 100 : 0;
-        const areaAvgHoursPerResource = m.uniqueResources.size ? (m.totalDevActual + m.totalTestActual) / m.uniqueResources.size : 0;
-        businessAreasSummary[area] = {
-            totalStories: m.totalStories,
-            completedStories: m.closedCount,
-            avgCycleTime: parseFloat(areaAvgCycle),
-            effortVariance: parseFloat(areaEffortVar.toFixed(1)),
-            dre: parseFloat(areaDre.toFixed(1)),
-            internalBugs: m.totalInternalBugs,
-            uatBugs: m.totalUatBugs,
-            totalDevActual: parseFloat(m.totalDevActual.toFixed(1)),
-            totalTestActual: parseFloat(m.totalTestActual.toFixed(1)),
-            totalBugActual: parseFloat(m.totalBugActual.toFixed(1)),
-            uniqueResourcesCount: m.uniqueResources.size,
-            avgHoursPerResource: parseFloat(areaAvgHoursPerResource.toFixed(1)),
-            bugSeverity: m.bugSeverity,
-            bugTypeCount: m.bugTypeCount,
-            reworkRatio: parseFloat(areaReworkRatio.toFixed(1))
-        };
-    }
 
     return {
         iterationName: config.name,
@@ -1538,7 +1487,9 @@ async function fetchIterationSummary(config) {
         bugSeverity: bugSeverity,
         bugTypeCount: bugTypeCount,
         reworkRatio: parseFloat(reworkRatio.toFixed(1)),
-        businessAreas: businessAreasSummary
+        devCount: devCount,
+        testerCount: testerCount,
+        dbCount: dbCount
     };
 }
 
@@ -1564,14 +1515,9 @@ async function syncAllIterationsData() {
         }
     }
     if (summaries.length) {
-        try {
-            await uploadHistoricalSummary(summaries);
-            localStorage.setItem('historical_summaries', JSON.stringify(summaries));
-            statusDiv.innerText = `✅ Synced ${summaries.length} iterations to historical data.`;
-        } catch (uploadErr) {
-            statusDiv.innerText = `❌ Upload failed: ${uploadErr.message}`;
-            console.error(uploadErr);
-        }
+        await uploadHistoricalSummary(summaries);
+        localStorage.setItem('historical_summaries', JSON.stringify(summaries));
+        statusDiv.innerText = `✅ Synced ${summaries.length} iterations to historical data.`;
     } else {
         statusDiv.innerText = "❌ No summary data collected.";
     }
@@ -1580,9 +1526,8 @@ async function syncAllIterationsData() {
 
 async function uploadHistoricalSummary(summaries) {
     if (!githubToken) return;
-    const jsonString = JSON.stringify(summaries, null, 2);
-    const content = btoa(unescape(encodeURIComponent(jsonString)));
-    let sha = null;
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
+    let sha = "";
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
             headers: { 'Authorization': `token ${githubToken}` }
@@ -1590,33 +1535,13 @@ async function uploadHistoricalSummary(summaries) {
         if (res.ok) {
             const data = await res.json();
             sha = data.sha;
-        } else if (res.status !== 404) {
-            throw new Error(`Failed to fetch file info: ${res.status}`);
         }
-    } catch (e) {
-        console.warn("Error getting sha, assuming file does not exist", e);
-        sha = null;
-    }
-    
-    const body = {
-        message: "Update historical iteration summaries",
-        content: content,
-        branch: GH_CONFIG.branch
-    };
-    if (sha) body.sha = sha;
-    
-    const putRes = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
+    } catch (e) { /* file does not exist */ }
+    await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
         method: 'PUT',
         headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ message: "Update historical iteration summaries", content: content, sha: sha, branch: GH_CONFIG.branch })
     });
-    
-    if (!putRes.ok) {
-        const errorText = await putRes.text();
-        console.error("GitHub upload failed:", putRes.status, errorText);
-        throw new Error(`GitHub upload failed: ${putRes.status} - ${errorText}`);
-    }
-    console.log("Historical summary uploaded successfully");
 }
 
 async function loadHistoricalSummary() {
@@ -1638,32 +1563,23 @@ async function loadHistoricalSummary() {
     return local ? JSON.parse(local) : [];
 }
 
-function renderLineChart(canvasId, labels, data, label, color) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
+// Helper chart functions
+function renderLineChart(canvasId, labels, data, label, color, yLabel = '') {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
     window[canvasId + 'Chart'] = new Chart(ctx, {
         type: 'line',
         data: { labels, datasets: [{ label: label, data: data, borderColor: color, backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: color }] },
-        options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.raw}%` } } } }
-    });
-}
-
-function renderLineChartWithTarget(canvasId, labels, data, label, color, targetValue) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
-    const targetData = Array(labels.length).fill(targetValue);
-    window[canvasId + 'Chart'] = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets: [
-            { label: label, data: data, borderColor: color, backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: color },
-            { label: `Target ${targetValue}%`, data: targetData, borderColor: '#e74c3c', borderDash: [5,5], backgroundColor: 'transparent', fill: false, pointRadius: 0 }
-        ] },
-        options: { responsive: true, maintainAspectRatio: true }
+        options: { responsive: true, maintainAspectRatio: true, scales: { y: { title: { display: !!yLabel, text: yLabel } } } }
     });
 }
 
 function renderStackedBarChart(canvasId, labels, datasets, yLabel) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
     window[canvasId + 'Chart'] = new Chart(ctx, {
         type: 'bar',
@@ -1672,26 +1588,15 @@ function renderStackedBarChart(canvasId, labels, datasets, yLabel) {
     });
 }
 
-function renderDualBarChart(canvasId, labels, data1, data2) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
-    window[canvasId + 'Chart'] = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets: [
-            { label: 'Unique Resources', data: data1, backgroundColor: '#3498db', yAxisID: 'y' },
-            { label: 'Avg Hours / Resource', data: data2, backgroundColor: '#e67e22', yAxisID: 'y1', type: 'line', fill: false, tension: 0.3 }
-        ] },
-        options: { responsive: true, maintainAspectRatio: true, scales: { y: { title: { display: true, text: 'Resources' } }, y1: { position: 'right', title: { display: true, text: 'Hours' }, grid: { drawOnChartArea: false } } } }
-    });
-}
-
 function renderStackedPercentageBar(canvasId, labels, datasets, title) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
     window[canvasId + 'Chart'] = new Chart(ctx, {
         type: 'bar',
         data: { labels, datasets: datasets },
-        options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Percentage (%)' }, max: 100, ticks: { callback: (val) => val + '%' } } }, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} bugs (${((ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)` } } } }
+        options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Percentage (%)' }, max: 100, ticks: { callback: (val) => val + '%' } } }, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw} (${((ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)` } } } }
     });
 }
 
@@ -1705,145 +1610,84 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    let allBusinessAreas = new Set();
-    historicalData.forEach(iteration => {
-        if (iteration.businessAreas) {
-            Object.keys(iteration.businessAreas).forEach(area => allBusinessAreas.add(area));
-        }
+    historicalData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
+    const labels = historicalData.map(d => d.iterationName);
+
+    // 1. Effort Variance (EV)
+    const evData = historicalData.map(d => d.effortVariance);
+    renderLineChart('evLineChart', labels, evData, 'Effort Variance %', '#f39c12', 'Variance %');
+
+    // 2. Rework Ratio (RW)
+    const rwData = historicalData.map(d => d.reworkRatio);
+    renderLineChart('rwLineChart', labels, rwData, 'Rework Ratio %', '#e67e22', 'Rework %');
+
+    // 3. Cycle Time (CT)
+    const ctData = historicalData.map(d => d.avgCycleTime);
+    renderLineChart('ctLineChart', labels, ctData, 'Cycle Time (days)', '#3498db', 'Days');
+
+    // 4. Average Workload (hours per resource)
+    const workloadData = historicalData.map(d => d.avgHoursPerResource);
+    renderLineChart('avgWorkloadLineChart', labels, workloadData, 'Avg Hours / Resource', '#9b59b6', 'Hours');
+
+    // 5. Resource Distribution (stacked bar: Dev, Tester, DB counts)
+    const devCounts = historicalData.map(d => d.devCount || 0);
+    const testerCounts = historicalData.map(d => d.testerCount || 0);
+    const dbCounts = historicalData.map(d => d.dbCount || 0);
+    renderStackedBarChart('resourceDistChart', labels, [
+        { label: 'Developers', data: devCounts, backgroundColor: '#2c3e50' },
+        { label: 'Testers', data: testerCounts, backgroundColor: '#27ae60' },
+        { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
+    ], 'Headcount');
+
+    // 6. Bug Severity stacked %
+    const severityCritical = historicalData.map(d => d.bugSeverity?.critical || 0);
+    const severityHigh = historicalData.map(d => d.bugSeverity?.high || 0);
+    const severityMedium = historicalData.map(d => d.bugSeverity?.medium || 0);
+    const severityLow = historicalData.map(d => d.bugSeverity?.low || 0);
+    renderStackedPercentageBar('bugSeverityChart', labels, [
+        { label: 'Critical', data: severityCritical, backgroundColor: '#c0392b' },
+        { label: 'High', data: severityHigh, backgroundColor: '#e67e22' },
+        { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
+        { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
+    ], 'Bug Severity');
+
+    // 7. Bug Type (Generic vs Specific) stacked %
+    const genericBugs = historicalData.map(d => d.bugTypeCount?.generic || 0);
+    const specificBugs = historicalData.map(d => d.bugTypeCount?.specific || 0);
+    renderStackedPercentageBar('bugTypeChart', labels, [
+        { label: 'Generic Bugs', data: genericBugs, backgroundColor: '#e67e22' },
+        { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
+    ], 'Bug Type');
+
+    // Render summary table (same as before)
+    let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+        <thead><tr style="background:#2c3e50; color:white;">
+            <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
+        </tr></thead><tbody>`;
+    historicalData.forEach(d => {
+        tableHtml += `<tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;">${d.iterationName}</td>
+            <td style="text-align:center;">${d.completedStories} / ${d.totalStories}</td>
+            <td style="text-align:center;">${d.avgCycleTime}</td>
+            <td style="text-align:center; color:${d.effortVariance > 15 ? '#e74c3c' : '#27ae60'};">${d.effortVariance}%</td>
+            <td style="text-align:center; color:${d.dre < 85 ? '#e67e22' : '#27ae60'};">${d.dre}%</td>
+            <td style="text-align:center; color:${d.reworkRatio > 15 ? '#e74c3c' : '#27ae60'};">${d.reworkRatio}%</td>
+            <td style="text-align:center;">${d.totalDevActual || 0}</td>
+            <td style="text-align:center;">${d.totalTestActual || 0}</td>
+            <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
+        </tr>`;
     });
-    if (allBusinessAreas.size === 0) {
-        container.innerHTML = `<div class="card"><p>⚠️ Historical data does not contain per-business-area breakdown. Please re-sync iterations using "Sync All Iterations Data" after updating the system.</p></div>`;
-        return;
+    tableHtml += `</tbody></table>`;
+    let existingTable = document.getElementById('historicalSummaryTable');
+    if (!existingTable) {
+        existingTable = document.createElement('div');
+        existingTable.id = 'historicalSummaryTable';
+        container.appendChild(existingTable);
     }
-    const businessAreasList = Array.from(allBusinessAreas).sort();
-
-    let selectorDiv = document.getElementById('businessAreaSelector');
-    if (!selectorDiv) {
-        selectorDiv = document.createElement('div');
-        selectorDiv.id = 'businessAreaSelector';
-        selectorDiv.style.marginBottom = '20px';
-        selectorDiv.innerHTML = `
-            <label for="areaSelect" style="font-weight: bold; margin-right: 10px;">Select Business Area: </label>
-            <select id="areaSelect" style="padding: 8px; border-radius: 4px;">
-                ${businessAreasList.map(area => `<option value="${area}">${area}</option>`).join('')}
-            </select>
-        `;
-        container.insertBefore(selectorDiv, container.firstChild);
-    } else {
-        const select = document.getElementById('areaSelect');
-        select.innerHTML = businessAreasList.map(area => `<option value="${area}">${area}</option>`).join('');
-    }
-
-    function updateChartsForArea(area) {
-        const filteredData = historicalData.map(iteration => {
-            const areaData = iteration.businessAreas && iteration.businessAreas[area];
-            if (!areaData) return null;
-            return {
-                iterationName: iteration.iterationName,
-                effortVariance: areaData.effortVariance,
-                totalDevActual: areaData.totalDevActual,
-                totalTestActual: areaData.totalTestActual,
-                uniqueResourcesCount: areaData.uniqueResourcesCount,
-                avgHoursPerResource: areaData.avgHoursPerResource,
-                dre: areaData.dre,
-                reworkRatio: areaData.reworkRatio,
-                bugSeverity: areaData.bugSeverity,
-                bugTypeCount: areaData.bugTypeCount
-            };
-        }).filter(item => item !== null);
-
-        if (filteredData.length === 0) {
-            const chartContainers = document.querySelectorAll('#historical-analytics-view .chart-card');
-            chartContainers.forEach(card => {
-                const canvas = card.querySelector('canvas');
-                if (canvas && canvas.getContext) {
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.font = '16px Arial';
-                    ctx.fillStyle = '#999';
-                    ctx.fillText('No data for this area', 20, 50);
-                }
-            });
-            const summaryTable = document.getElementById('historicalSummaryTable');
-            if (summaryTable) summaryTable.innerHTML = '<p>No data for this business area.</p>';
-            return;
-        }
-
-        filteredData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
-        const labels = filteredData.map(d => d.iterationName);
-
-        const effortVariances = filteredData.map(d => d.effortVariance);
-        renderLineChart('effortVarianceChart', labels, effortVariances, 'Effort Variance %', '#f39c12');
-
-        const devActuals = filteredData.map(d => d.totalDevActual || 0);
-        const testActuals = filteredData.map(d => d.totalTestActual || 0);
-        renderStackedBarChart('workloadStackedChart', labels, [
-            { label: 'Dev Actual Hours', data: devActuals, backgroundColor: '#3498db' },
-            { label: 'Test Actual Hours', data: testActuals, backgroundColor: '#2ecc71' }
-        ], 'Hours');
-
-        const uniqueResources = filteredData.map(d => d.uniqueResourcesCount || 0);
-        const avgHoursPerResource = filteredData.map(d => d.avgHoursPerResource || 0);
-        renderDualBarChart('resourceChart', labels, uniqueResources, avgHoursPerResource);
-
-        const dreValues = filteredData.map(d => d.dre);
-        renderLineChartWithTarget('dreTrendChart', labels, dreValues, 'DRE %', '#27ae60', 85);
-
-        const reworkRatios = filteredData.map(d => d.reworkRatio !== undefined ? d.reworkRatio : 0);
-        renderLineChart('reworkRatioChart', labels, reworkRatios, 'Rework Ratio %', '#e67e22');
-
-        const severityCritical = filteredData.map(d => d.bugSeverity?.critical || 0);
-        const severityHigh = filteredData.map(d => d.bugSeverity?.high || 0);
-        const severityMedium = filteredData.map(d => d.bugSeverity?.medium || 0);
-        const severityLow = filteredData.map(d => d.bugSeverity?.low || 0);
-        renderStackedPercentageBar('bugSeverityChart', labels, [
-            { label: 'Critical', data: severityCritical, backgroundColor: '#c0392b' },
-            { label: 'High', data: severityHigh, backgroundColor: '#e67e22' },
-            { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
-            { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
-        ], 'Bug Severity');
-
-        const genericBugs = filteredData.map(d => d.bugTypeCount?.generic || 0);
-        const specificBugs = filteredData.map(d => d.bugTypeCount?.specific || 0);
-        renderStackedPercentageBar('bugTypeChart', labels, [
-            { label: 'Generic Bugs', data: genericBugs, backgroundColor: '#e67e22' },
-            { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
-        ], 'Bug Type');
-
-        let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
-            <thead><tr style="background:#2c3e50; color:white;">
-                <th style="padding:12px;">Iteration</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-            </tr></thead><tbody>`;
-        filteredData.forEach(d => {
-            tableHtml += `<tr style="border-bottom:1px solid #eee;">
-                <td style="padding:10px;">${d.iterationName}</td>
-                <td style="text-align:center; color:${d.effortVariance > 15 ? '#e74c3c' : '#27ae60'};">${d.effortVariance}%</td>
-                <td style="text-align:center; color:${d.dre < 85 ? '#e67e22' : '#27ae60'};">${d.dre}%</td>
-                <td style="text-align:center; color:${d.reworkRatio > 15 ? '#e74c3c' : '#27ae60'};">${d.reworkRatio}%</td>
-                <td style="text-align:center;">${d.totalDevActual || 0}</td>
-                <td style="text-align:center;">${d.totalTestActual || 0}</td>
-                <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-             </tr>`;
-        });
-        tableHtml += `</tbody>\\n    </div>\\n</div>`;
-        let existingTable = document.getElementById('historicalSummaryTable');
-        if (!existingTable) {
-            existingTable = document.createElement('div');
-            existingTable.id = 'historicalSummaryTable';
-            container.appendChild(existingTable);
-        }
-        existingTable.innerHTML = tableHtml;
-    }
-
-    const areaSelect = document.getElementById('areaSelect');
-    areaSelect.addEventListener('change', (e) => {
-        updateChartsForArea(e.target.value);
-    });
-    if (businessAreasList.length) {
-        updateChartsForArea(businessAreasList[0]);
-    }
+    existingTable.innerHTML = tableHtml;
 }
 
+// Helper functions for historical sync (duplicate from main but safe)
 function buildStoriesFromRawDataForHistory(data) {
     const stories = [];
     let currentStory = null;
@@ -2042,6 +1886,34 @@ async function deleteAzureConfig(index) {
     }
 }
 
+function addHoliday() {
+    const picker = document.getElementById('holidayPicker');
+    if (!picker.value) return;
+    const date = picker.value;
+    if (!holidays.includes(date)) {
+        holidays.push(date);
+        localStorage.setItem('holidays', JSON.stringify(holidays));
+        renderHolidaysList();
+        processData(); // re-calc timelines
+        renderIterationView(); // refresh if visible
+    }
+    picker.value = '';
+}
+
+function renderHolidaysList() {
+    const list = document.getElementById('holidaysList');
+    if (!list) return;
+    list.innerHTML = holidays.map(d => `<li>${d} <button onclick="removeHoliday('${d}')">Remove</button></li>`).join('');
+}
+
+function removeHoliday(date) {
+    holidays = holidays.filter(d => d !== date);
+    localStorage.setItem('holidays', JSON.stringify(holidays));
+    renderHolidaysList();
+    processData();
+    renderIterationView();
+}
+
 // ==================== View Switching ====================
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
@@ -2054,30 +1926,8 @@ function showView(viewId) {
     if (viewId === 'people-view') renderPeopleView();
     if (viewId === 'not-tested-view') renderNotTestedView();
     if (viewId === 'users-view') renderUsersTable();
+    if (viewId === 'holidays-view') renderHolidaysList();
     if (viewId === 'historical-analytics-view') renderHistoricalAnalyticsView();
-}
-
-function addHoliday() {
-    const picker = document.getElementById('holidayPicker');
-    if (!picker || !picker.value) return;
-    if (!holidays.includes(picker.value)) {
-        holidays.push(picker.value);
-        localStorage.setItem('holidays', JSON.stringify(holidays));
-        renderHolidaysList();
-    }
-    picker.value = '';
-}
-
-function renderHolidaysList() {
-    const list = document.getElementById('holidaysList');
-    if (!list) return;
-    list.innerHTML = holidays.map(h => `<li>${h} <button onclick="removeHoliday('${h}')">Remove</button></li>`).join('');
-}
-
-function removeHoliday(holiday) {
-    holidays = holidays.filter(h => h !== holiday);
-    localStorage.setItem('holidays', JSON.stringify(holidays));
-    renderHolidaysList();
 }
 
 // ==================== Initialization ====================
