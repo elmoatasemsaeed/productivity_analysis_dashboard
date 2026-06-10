@@ -1411,7 +1411,7 @@ async function fetchIterationSummary(config) {
 
     // Aggregates (overall)
     let totalStories = stories.length;
-    let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalBugActual = 0;
+    let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalDbActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
     let totalInternalBugs = 0, totalUatBugs = 0;
     let closedCount = 0;
@@ -1428,7 +1428,7 @@ async function fetchIterationSummary(config) {
         const area = us.businessArea || 'General';
         if (!businessMap.has(area)) {
             businessMap.set(area, {
-                totalStories: 0, totalEst: 0, totalDevActual: 0, totalTestActual: 0, totalBugActual: 0,
+                totalStories: 0, totalEst: 0, totalDevActual: 0, totalTestActual: 0, totalDbActual: 0, totalBugActual: 0,
                 totalCycleTime: 0, cycleCount: 0, totalInternalBugs: 0, totalUatBugs: 0, closedCount: 0,
                 uniqueResources: new Set(), bugSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
                 bugTypeCount: { generic: 0, specific: 0 },
@@ -1440,11 +1440,13 @@ async function fetchIterationSummary(config) {
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
         const devAct = us.devEffort.actual;
         const testAct = us.testEffort.actual;
+        const dbAct = us.dbEffort?.actual || 0;
         const bugAct = us.rework.actualTime;
         
         ba.totalEst += est;
         ba.totalDevActual += devAct;
         ba.totalTestActual += testAct;
+        ba.totalDbActual += dbAct;
         ba.totalBugActual += bugAct;
         ba.totalStories++;
         if (us.cycleTime > 0) { ba.totalCycleTime += us.cycleTime; ba.cycleCount++; }
@@ -1476,6 +1478,7 @@ async function fetchIterationSummary(config) {
         totalEst += est;
         totalDevActual += devAct;
         totalTestActual += testAct;
+        totalDbActual += dbAct;
         totalBugActual += bugAct;
         if (us.cycleTime > 0) { totalCycleTime += us.cycleTime; cycleCount++; }
         totalInternalBugs += us.rework.count;
@@ -1511,6 +1514,11 @@ async function fetchIterationSummary(config) {
     const dre = totalBugs ? (totalInternalBugs / totalBugs) * 100 : 100;
     const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
     const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
+    
+    // Role-specific averages
+    const avgDevHours = devCount ? totalDevActual / devCount : 0;
+    const avgTestHours = testerCount ? totalTestActual / testerCount : 0;
+    const avgDbHours = dbCount ? totalDbActual / dbCount : 0;
 
     // Build business metrics array
     const businessMetrics = [];
@@ -1521,6 +1529,12 @@ async function fetchIterationSummary(config) {
         const baDre = baTotalBugs ? (ba.totalInternalBugs / baTotalBugs) * 100 : 100;
         const baReworkRatio = (ba.totalDevActual + ba.totalTestActual) ? (ba.totalBugActual / (ba.totalDevActual + ba.totalTestActual)) * 100 : 0;
         const baAvgHoursPerRes = ba.uniqueResources.size ? (ba.totalDevActual + ba.totalTestActual) / ba.uniqueResources.size : 0;
+        
+        // Role-specific averages per business area
+        const baAvgDevHours = ba.devSet.size ? ba.totalDevActual / ba.devSet.size : 0;
+        const baAvgTestHours = ba.testerSet.size ? ba.totalTestActual / ba.testerSet.size : 0;
+        const baAvgDbHours = ba.dbSet.size ? ba.totalDbActual / ba.dbSet.size : 0;
+
         businessMetrics.push({
             area: area,
             totalStories: ba.totalStories,
@@ -1532,9 +1546,13 @@ async function fetchIterationSummary(config) {
             uatBugs: ba.totalUatBugs,
             totalDevActual: parseFloat(ba.totalDevActual.toFixed(1)),
             totalTestActual: parseFloat(ba.totalTestActual.toFixed(1)),
+            totalDbActual: parseFloat(ba.totalDbActual.toFixed(1)),
             totalBugActual: parseFloat(ba.totalBugActual.toFixed(1)),
             uniqueResourcesCount: ba.uniqueResources.size,
             avgHoursPerResource: parseFloat(baAvgHoursPerRes.toFixed(1)),
+            avgDevHours: parseFloat(baAvgDevHours.toFixed(1)),
+            avgTestHours: parseFloat(baAvgTestHours.toFixed(1)),
+            avgDbHours: parseFloat(baAvgDbHours.toFixed(1)),
             bugSeverity: ba.bugSeverity,
             bugTypeCount: ba.bugTypeCount,
             reworkRatio: parseFloat(baReworkRatio.toFixed(1)),
@@ -1555,9 +1573,13 @@ async function fetchIterationSummary(config) {
         uatBugs: totalUatBugs,
         totalDevActual: parseFloat(totalDevActual.toFixed(1)),
         totalTestActual: parseFloat(totalTestActual.toFixed(1)),
+        totalDbActual: parseFloat(totalDbActual.toFixed(1)),
         totalBugActual: parseFloat(totalBugActual.toFixed(1)),
         uniqueResourcesCount: uniqueResources.size,
         avgHoursPerResource: parseFloat(avgHoursPerResource.toFixed(1)),
+        avgDevHours: parseFloat(avgDevHours.toFixed(1)),
+        avgTestHours: parseFloat(avgTestHours.toFixed(1)),
+        avgDbHours: parseFloat(avgDbHours.toFixed(1)),
         bugSeverity: bugSeverity,
         bugTypeCount: bugTypeCount,
         reworkRatio: parseFloat(reworkRatio.toFixed(1)),
@@ -1567,6 +1589,25 @@ async function fetchIterationSummary(config) {
         businessMetrics: businessMetrics
     };
 }
+
+function renderMultiLineChart(canvasId, labels, datasets, yLabel = '') {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: { title: { display: !!yLabel, text: yLabel } }
+            }
+        }
+    });
+}
+
 function renderFilteredCharts(historicalData, selectedArea) {
     if (!historicalData || historicalData.length === 0) return;
     const metricsByIteration = [];
@@ -1592,8 +1633,18 @@ function renderFilteredCharts(historicalData, selectedArea) {
     renderLineChart('filteredRwChart', labels, rwData, 'Rework Ratio %', '#e67e22', 'Rework %');
     const ctData = metricsByIteration.map(m => m.avgCycleTime);
     renderLineChart('filteredCtChart', labels, ctData, 'Cycle Time (days)', '#3498db', 'Days');
-    const workloadData = metricsByIteration.map(m => m.avgHoursPerResource);
-    renderLineChart('filteredAvgWorkloadChart', labels, workloadData, 'Avg Hours / Resource', '#9b59b6', 'Hours');
+    
+    // Multi-line workload chart for business area
+    const devWorkload = metricsByIteration.map(m => m.avgDevHours || 0);
+    const testWorkload = metricsByIteration.map(m => m.avgTestHours || 0);
+    const dbWorkload = metricsByIteration.map(m => m.avgDbHours || 0);
+    renderMultiLineChart('filteredAvgWorkloadChart', labels, [
+        { label: 'Developers (avg hours)', data: devWorkload, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
+        { label: 'Testers (avg hours)', data: testWorkload, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
+        { label: 'DB Specialists (avg hours)', data: dbWorkload, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' }
+    ], 'Hours per Resource');
+    
+    // Resource distribution (stacked bar)
     const devCounts = metricsByIteration.map(m => m.devCount || 0);
     const testerCounts = metricsByIteration.map(m => m.testerCount || 0);
     const dbCounts = metricsByIteration.map(m => m.dbCount || 0);
@@ -1602,6 +1653,8 @@ function renderFilteredCharts(historicalData, selectedArea) {
         { label: 'Testers', data: testerCounts, backgroundColor: '#27ae60' },
         { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
     ], 'Headcount');
+    
+    // Bug severity
     const severityCritical = metricsByIteration.map(m => m.bugSeverity?.critical || 0);
     const severityHigh = metricsByIteration.map(m => m.bugSeverity?.high || 0);
     const severityMedium = metricsByIteration.map(m => m.bugSeverity?.medium || 0);
@@ -1612,6 +1665,8 @@ function renderFilteredCharts(historicalData, selectedArea) {
         { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
         { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
     ], 'Bug Severity');
+    
+    // Bug type
     const genericBugs = metricsByIteration.map(m => m.bugTypeCount?.generic || 0);
     const specificBugs = metricsByIteration.map(m => m.bugTypeCount?.specific || 0);
     renderStackedPercentageBar('filteredBugTypeChart', labels, [
@@ -1737,23 +1792,15 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    // ----- الترتيب حسب azureConfigs (ترتيب الإضافة) -----
-    // 1. الحصول على أسماء التكرارات من azureConfigs حسب الترتيب الأصلي
+    // Sort according to azureConfigs order (preserve insertion order)
     const configOrder = azureConfigs.map(cfg => cfg.name);
-    
-    // 2. إنشاء خريطة لتحديد موضع كل تكرار بناءً على configOrder (القيمة الأقل تظهر أولاً)
     const orderMap = new Map();
-    configOrder.forEach((name, idx) => {
-        orderMap.set(name, idx);
-    });
-    
-    // 3. فرز historicalData حسب الفهرس في configOrder (إن وُجد) مع وضع غير الموجود في النهاية
+    configOrder.forEach((name, idx) => orderMap.set(name, idx));
     historicalData.sort((a, b) => {
         const idxA = orderMap.has(a.iterationName) ? orderMap.get(a.iterationName) : configOrder.length;
         const idxB = orderMap.has(b.iterationName) ? orderMap.get(b.iterationName) : configOrder.length;
         return idxA - idxB;
     });
-    // ----- نهاية التعديل -----
 
     const labels = historicalData.map(d => d.iterationName);
 
@@ -1761,8 +1808,18 @@ async function renderHistoricalAnalyticsView() {
     renderLineChart('evLineChart', labels, historicalData.map(d => d.effortVariance), 'Effort Variance %', '#f39c12', 'Variance %');
     renderLineChart('rwLineChart', labels, historicalData.map(d => d.reworkRatio), 'Rework Ratio %', '#e67e22', 'Rework %');
     renderLineChart('ctLineChart', labels, historicalData.map(d => d.avgCycleTime), 'Cycle Time (days)', '#3498db', 'Days');
-    renderLineChart('avgWorkloadLineChart', labels, historicalData.map(d => d.avgHoursPerResource), 'Avg Hours / Resource', '#9b59b6', 'Hours');
-    
+
+    // === Multi-line workload chart (Dev, Tester, DB) ===
+    const devWorkload = historicalData.map(d => d.avgDevHours || 0);
+    const testWorkload = historicalData.map(d => d.avgTestHours || 0);
+    const dbWorkload = historicalData.map(d => d.avgDbHours || 0);
+    renderMultiLineChart('avgWorkloadLineChart', labels, [
+        { label: 'Developers (avg hours)', data: devWorkload, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
+        { label: 'Testers (avg hours)', data: testWorkload, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
+        { label: 'DB Specialists (avg hours)', data: dbWorkload, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' }
+    ], 'Hours per Resource');
+
+    // Resource distribution (stacked bar)
     const devCounts = historicalData.map(d => d.devCount || 0);
     const testerCounts = historicalData.map(d => d.testerCount || 0);
     const dbCounts = historicalData.map(d => d.dbCount || 0);
@@ -1771,7 +1828,8 @@ async function renderHistoricalAnalyticsView() {
         { label: 'Testers', data: testerCounts, backgroundColor: '#27ae60' },
         { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
     ], 'Headcount');
-    
+
+    // Bug severity distribution (stacked percentage)
     const severityCritical = historicalData.map(d => d.bugSeverity?.critical || 0);
     const severityHigh = historicalData.map(d => d.bugSeverity?.high || 0);
     const severityMedium = historicalData.map(d => d.bugSeverity?.medium || 0);
@@ -1782,7 +1840,8 @@ async function renderHistoricalAnalyticsView() {
         { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
         { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
     ], 'Bug Severity');
-    
+
+    // Bug type distribution (stacked percentage)
     const genericBugs = historicalData.map(d => d.bugTypeCount?.generic || 0);
     const specificBugs = historicalData.map(d => d.bugTypeCount?.specific || 0);
     renderStackedPercentageBar('bugTypeChart', labels, [
@@ -1798,7 +1857,7 @@ async function renderHistoricalAnalyticsView() {
         }
     });
     const areasArray = Array.from(allAreas).sort();
-    
+
     let areaSelect = document.getElementById('businessAreaSelect');
     if (!areaSelect) {
         const filterDiv = document.createElement('div');
@@ -1818,24 +1877,25 @@ async function renderHistoricalAnalyticsView() {
     } else {
         areaSelect.innerHTML = '<option value="">-- All Areas (Overall) --</option>' + areasArray.map(a => `<option value="${a}">${a}</option>`).join('');
     }
-    
+
     window.__historicalData = historicalData;
     const savedArea = localStorage.getItem('selectedBusinessArea');
     if (savedArea && areasArray.includes(savedArea)) {
         areaSelect.value = savedArea;
         onBusinessAreaChange();
     } else {
-        document.getElementById('filteredChartsMessage') && (document.getElementById('filteredChartsMessage').innerText = '');
+        const msgDiv = document.getElementById('filteredChartsMessage');
+        if (msgDiv) msgDiv.innerText = '';
         ['filteredEvChart','filteredRwChart','filteredCtChart','filteredAvgWorkloadChart','filteredResourceDistChart','filteredBugSeverityChart','filteredBugTypeChart'].forEach(id => {
             if (window[id+'Chart']) window[id+'Chart'].destroy();
         });
     }
-    
+
     // Summary table
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-        </tr></thead><tbody>`;
+         </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
@@ -1847,7 +1907,7 @@ async function renderHistoricalAnalyticsView() {
             <td style="text-align:center;">${d.totalDevActual || 0}</td>
             <td style="text-align:center;">${d.totalTestActual || 0}</td>
             <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-        </tr>`;
+         </tr>`;
     });
     tableHtml += `</tbody></table>`;
     let existingTable = document.getElementById('historicalSummaryTable');
