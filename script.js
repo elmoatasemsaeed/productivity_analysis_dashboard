@@ -686,7 +686,7 @@ function renderIterationView() {
             </tr>`;
     }
 
-    html += `</tbody></table></div></div>`;
+    html += `</tbody>\\n    </div>\\n</div>`;
     container.innerHTML = html;
 }
 
@@ -800,6 +800,7 @@ function renderBusinessView() {
     </tbody>
 </table>
 
+
                     <h5 style="margin: 20px 0 10px 0; color: #2c3e50;">Tasks Timeline & Schedule:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
                         <thead>
@@ -838,7 +839,7 @@ function renderBusinessView() {
                                 </tr>`;
                             }).join('')}
                         </tbody>
-                    </table>`;
+                    </div>`;
 
             html += `
                 <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -1202,7 +1203,7 @@ function renderPeopleView() {
                         <td style="padding: 10px; text-align: center; font-weight: bold;">${totalWork.toFixed(1)}h</td>
                     </tr>`;
             });
-            tableHtml += `</tbody></table></div></div>`;
+            tableHtml += `</tbody>\\n    </div>\\n</div>`;
             return tableHtml;
         };
 
@@ -1279,8 +1280,7 @@ function renderNotTestedView() {
                                 </tr>`;
                             }).join('')}
                         </tbody>
-                    </table>
-                </div>`;
+                    </div>`;
         });
         html += `</div>`;
     }
@@ -1384,6 +1384,7 @@ function mapAzureFields(item) {
     };
 }
 
+// Modified fetchIterationSummary to include per business area breakdown
 async function fetchIterationSummary(config) {
     const pat = localStorage.getItem('azure_pat');
     if (!pat) throw new Error("Azure PAT missing");
@@ -1408,7 +1409,7 @@ async function fetchIterationSummary(config) {
     const stories = buildStoriesFromRawDataForHistory(rawIterationData);
     calculateMetricsForStoriesForHistory(stories);
 
-    // Aggregated metrics
+    // Aggregate overall iteration metrics
     let totalStories = stories.length;
     let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1416,13 +1417,58 @@ async function fetchIterationSummary(config) {
     let closedCount = 0;
     let uniqueResources = new Set();
     let bugSeverity = { critical: 0, high: 0, medium: 0, low: 0 };
-    let bugTypeCount = { generic: 0, specific: 0 }; // generic = "Yes", specific = "No"
+    let bugTypeCount = { generic: 0, specific: 0 };
+    let businessAreasMap = new Map(); // key: area, value: metrics object
 
     stories.forEach(us => {
+        const area = us.businessArea || 'General';
+        if (!businessAreasMap.has(area)) {
+            businessAreasMap.set(area, {
+                totalStories: 0,
+                totalEst: 0,
+                totalDevActual: 0,
+                totalTestActual: 0,
+                totalBugActual: 0,
+                totalCycleTime: 0,
+                cycleCount: 0,
+                totalInternalBugs: 0,
+                totalUatBugs: 0,
+                closedCount: 0,
+                uniqueResources: new Set(),
+                bugSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+                bugTypeCount: { generic: 0, specific: 0 }
+            });
+        }
+        const areaMetrics = businessAreasMap.get(area);
+        areaMetrics.totalStories++;
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
         const devAct = us.devEffort.actual;
         const testAct = us.testEffort.actual;
         const bugAct = us.rework.actualTime;
+        areaMetrics.totalEst += est;
+        areaMetrics.totalDevActual += devAct;
+        areaMetrics.totalTestActual += testAct;
+        areaMetrics.totalBugActual += bugAct;
+        if (us.cycleTime > 0) {
+            areaMetrics.totalCycleTime += us.cycleTime;
+            areaMetrics.cycleCount++;
+        }
+        areaMetrics.totalInternalBugs += us.rework.count;
+        areaMetrics.totalUatBugs += us.rework.uatBugsCount;
+        if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') areaMetrics.closedCount++;
+        if (us.devLead) areaMetrics.uniqueResources.add(us.devLead);
+        if (us.testerLead) areaMetrics.uniqueResources.add(us.testerLead);
+        us.tasks.forEach(t => {
+            if (t['Assigned To']) areaMetrics.uniqueResources.add(t['Assigned To']);
+        });
+        areaMetrics.bugSeverity.critical += us.rework.severity.critical;
+        areaMetrics.bugSeverity.high += us.rework.severity.high;
+        areaMetrics.bugSeverity.medium += us.rework.severity.medium;
+        areaMetrics.bugSeverity.low += us.rework.severity.low;
+        areaMetrics.bugTypeCount.generic += us.rework.generic.count;
+        areaMetrics.bugTypeCount.specific += us.rework.specific.count;
+
+        // Overall metrics
         totalEst += est;
         totalDevActual += devAct;
         totalTestActual += testAct;
@@ -1431,21 +1477,15 @@ async function fetchIterationSummary(config) {
         totalInternalBugs += us.rework.count;
         totalUatBugs += us.rework.uatBugsCount;
         if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') closedCount++;
-
-        // Resources (dev lead, tester lead, task assignees)
         if (us.devLead) uniqueResources.add(us.devLead);
         if (us.testerLead) uniqueResources.add(us.testerLead);
         us.tasks.forEach(t => {
             if (t['Assigned To']) uniqueResources.add(t['Assigned To']);
         });
-
-        // Bug severity (from us.rework.severity)
         bugSeverity.critical += us.rework.severity.critical;
         bugSeverity.high += us.rework.severity.high;
         bugSeverity.medium += us.rework.severity.medium;
         bugSeverity.low += us.rework.severity.low;
-
-        // Bug type counts (generic vs specific)
         bugTypeCount.generic += us.rework.generic.count;
         bugTypeCount.specific += us.rework.specific.count;
     });
@@ -1457,6 +1497,34 @@ async function fetchIterationSummary(config) {
     const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
     const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
 
+    // Build business areas summary
+    const businessAreasSummary = {};
+    for (let [area, m] of businessAreasMap.entries()) {
+        const areaAvgCycle = m.cycleCount ? (m.totalCycleTime / m.cycleCount).toFixed(1) : 0;
+        const areaEffortVar = m.totalEst ? ((m.totalDevActual + m.totalTestActual - m.totalEst) / m.totalEst) * 100 : 0;
+        const areaTotalBugs = m.totalInternalBugs + m.totalUatBugs;
+        const areaDre = areaTotalBugs ? (m.totalInternalBugs / areaTotalBugs) * 100 : 100;
+        const areaReworkRatio = (m.totalDevActual + m.totalTestActual) ? (m.totalBugActual / (m.totalDevActual + m.totalTestActual)) * 100 : 0;
+        const areaAvgHoursPerResource = m.uniqueResources.size ? (m.totalDevActual + m.totalTestActual) / m.uniqueResources.size : 0;
+        businessAreasSummary[area] = {
+            totalStories: m.totalStories,
+            completedStories: m.closedCount,
+            avgCycleTime: parseFloat(areaAvgCycle),
+            effortVariance: parseFloat(areaEffortVar.toFixed(1)),
+            dre: parseFloat(areaDre.toFixed(1)),
+            internalBugs: m.totalInternalBugs,
+            uatBugs: m.totalUatBugs,
+            totalDevActual: parseFloat(m.totalDevActual.toFixed(1)),
+            totalTestActual: parseFloat(m.totalTestActual.toFixed(1)),
+            totalBugActual: parseFloat(m.totalBugActual.toFixed(1)),
+            uniqueResourcesCount: m.uniqueResources.size,
+            avgHoursPerResource: parseFloat(areaAvgHoursPerResource.toFixed(1)),
+            bugSeverity: m.bugSeverity,
+            bugTypeCount: m.bugTypeCount,
+            reworkRatio: parseFloat(areaReworkRatio.toFixed(1))
+        };
+    }
+
     return {
         iterationName: config.name,
         totalStories: totalStories,
@@ -1466,7 +1534,6 @@ async function fetchIterationSummary(config) {
         dre: parseFloat(dre.toFixed(1)),
         internalBugs: totalInternalBugs,
         uatBugs: totalUatBugs,
-        // New extended fields
         totalDevActual: parseFloat(totalDevActual.toFixed(1)),
         totalTestActual: parseFloat(totalTestActual.toFixed(1)),
         totalBugActual: parseFloat(totalBugActual.toFixed(1)),
@@ -1474,7 +1541,8 @@ async function fetchIterationSummary(config) {
         avgHoursPerResource: parseFloat(avgHoursPerResource.toFixed(1)),
         bugSeverity: bugSeverity,
         bugTypeCount: bugTypeCount,
-        reworkRatio: parseFloat(reworkRatio.toFixed(1))
+        reworkRatio: parseFloat(reworkRatio.toFixed(1)),
+        businessAreas: businessAreasSummary
     };
 }
 
@@ -1548,6 +1616,7 @@ async function loadHistoricalSummary() {
     return local ? JSON.parse(local) : [];
 }
 
+// Chart helper functions
 function renderLineChart(canvasId, labels, data, label, color) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
@@ -1605,6 +1674,7 @@ function renderStackedPercentageBar(canvasId, labels, datasets, title) {
     });
 }
 
+// Modified renderHistoricalAnalyticsView with business area selector
 async function renderHistoricalAnalyticsView() {
     const container = document.getElementById('historical-analytics-view');
     if (!container) return;
@@ -1615,101 +1685,156 @@ async function renderHistoricalAnalyticsView() {
         return;
     }
 
-    // Sort by iteration name (chronological)
-    historicalData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
-    const labels = historicalData.map(d => d.iterationName);
-
-    // --- 1. Effort Variance ---
-    const effortVariances = historicalData.map(d => d.effortVariance);
-    renderLineChart('effortVarianceChart', labels, effortVariances, 'Effort Variance %', '#f39c12');
-
-    // --- 2. Stacked Bar: Dev Actual vs Test Actual ---
-    const devActuals = historicalData.map(d => d.totalDevActual || 0);
-    const testActuals = historicalData.map(d => d.totalTestActual || 0);
-    renderStackedBarChart('workloadStackedChart', labels, [
-        { label: 'Dev Actual Hours', data: devActuals, backgroundColor: '#3498db' },
-        { label: 'Test Actual Hours', data: testActuals, backgroundColor: '#2ecc71' }
-    ], 'Hours');
-
-    // --- 3. Resource Capacity (Unique Resources & Avg Hours/Resource) ---
-    const uniqueResources = historicalData.map(d => d.uniqueResourcesCount || 0);
-    const avgHoursPerResource = historicalData.map(d => d.avgHoursPerResource || 0);
-    renderDualBarChart('resourceChart', labels, uniqueResources, avgHoursPerResource);
-
-    // --- 4. DRE Trend with 15% target line ---
-    const dreValues = historicalData.map(d => d.dre);
-    renderLineChartWithTarget('dreTrendChart', labels, dreValues, 'DRE %', '#27ae60', 15);
-
-    // --- 5. Rework Ratio ---
-    const reworkRatios = historicalData.map(d => d.reworkRatio !== undefined ? d.reworkRatio : 0);
-    renderLineChart('reworkRatioChart', labels, reworkRatios, 'Rework Ratio %', '#e67e22');
-
-    // --- 6. Bug Severity & Type (100% Stacked Bar) ---
-    // Prepare severity datasets
-    const severityCritical = historicalData.map(d => d.bugSeverity?.critical || 0);
-    const severityHigh = historicalData.map(d => d.bugSeverity?.high || 0);
-    const severityMedium = historicalData.map(d => d.bugSeverity?.medium || 0);
-    const severityLow = historicalData.map(d => d.bugSeverity?.low || 0);
-    renderStackedPercentageBar('bugSeverityChart', labels, [
-        { label: 'Critical', data: severityCritical, backgroundColor: '#c0392b' },
-        { label: 'High', data: severityHigh, backgroundColor: '#e67e22' },
-        { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
-        { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
-    ], 'Bug Severity');
-
-    // (Optional) Add Bug Type as a separate chart or combine? I'll keep separate for clarity.
-    // But we can also add a second small chart for Generic vs Specific bugs.
-    // Let's add a small sub-chart inside the same card if needed. For simplicity, we'll create another canvas inside the same card.
-    const bugTypeCanvasId = 'bugTypeChart';
-    let bugTypeCanvas = document.getElementById(bugTypeCanvasId);
-    if (!bugTypeCanvas) {
-        const parentCard = document.getElementById('bugSeverityChart').closest('.chart-card');
-        const p = document.createElement('p');
-        p.innerHTML = '<h4>Bug Type: Generic vs Specific</h4>';
-        const canvas = document.createElement('canvas');
-        canvas.id = bugTypeCanvasId;
-        canvas.width = 400;
-        canvas.height = 200;
-        parentCard.appendChild(p);
-        parentCard.appendChild(canvas);
-        bugTypeCanvas = canvas;
-    }
-    const genericBugs = historicalData.map(d => d.bugTypeCount?.generic || 0);
-    const specificBugs = historicalData.map(d => d.bugTypeCount?.specific || 0);
-    renderStackedPercentageBar(bugTypeCanvasId, labels, [
-        { label: 'Generic Bugs', data: genericBugs, backgroundColor: '#e67e22' },
-        { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
-    ], 'Bug Type');
-
-    // --- Render Summary Table (existing) ---
-    let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
-        <thead><tr style="background:#2c3e50; color:white;">
-            <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-        </tr></thead><tbody>`;
-    historicalData.forEach(d => {
-        tableHtml += `<tr style="border-bottom:1px solid #eee;">
-            <td style="padding:10px;">${d.iterationName}</td>
-            <td style="text-align:center;">${d.completedStories} / ${d.totalStories}</td>
-            <td style="text-align:center;">${d.avgCycleTime}</td>
-            <td style="text-align:center; color:${d.effortVariance > 15 ? '#e74c3c' : '#27ae60'};">${d.effortVariance}%</td>
-            <td style="text-align:center; color:${d.dre < 85 ? '#e67e22' : '#27ae60'};">${d.dre}%</td>
-            <td style="text-align:center; color:${d.reworkRatio > 15 ? '#e74c3c' : '#27ae60'};">${d.reworkRatio}%</td>
-            <td style="text-align:center;">${d.totalDevActual || 0}</td>
-            <td style="text-align:center;">${d.totalTestActual || 0}</td>
-            <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-        </tr>`;
+    // Extract all business areas from data
+    let allBusinessAreas = new Set();
+    historicalData.forEach(iteration => {
+        if (iteration.businessAreas) {
+            Object.keys(iteration.businessAreas).forEach(area => allBusinessAreas.add(area));
+        }
     });
-    tableHtml += `</tbody></table>`;
-    let existingTable = document.getElementById('historicalSummaryTable');
-    if (!existingTable) {
-        existingTable = document.createElement('div');
-        existingTable.id = 'historicalSummaryTable';
-        container.appendChild(existingTable);
+    if (allBusinessAreas.size === 0) {
+        container.innerHTML = `<div class="card"><p>⚠️ Historical data does not contain per-business-area breakdown. Please re-sync iterations using "Sync All Iterations Data" after updating the system.</p></div>`;
+        return;
     }
-    existingTable.innerHTML = tableHtml;
+    const businessAreasList = Array.from(allBusinessAreas).sort();
+
+    // Create or update selector div
+    let selectorDiv = document.getElementById('businessAreaSelector');
+    if (!selectorDiv) {
+        selectorDiv = document.createElement('div');
+        selectorDiv.id = 'businessAreaSelector';
+        selectorDiv.style.marginBottom = '20px';
+        selectorDiv.innerHTML = `
+            <label for="areaSelect" style="font-weight: bold; margin-right: 10px;">Select Business Area: </label>
+            <select id="areaSelect" style="padding: 8px; border-radius: 4px;">
+                ${businessAreasList.map(area => `<option value="${area}">${area}</option>`).join('')}
+            </select>
+        `;
+        container.insertBefore(selectorDiv, container.firstChild);
+    } else {
+        const select = document.getElementById('areaSelect');
+        select.innerHTML = businessAreasList.map(area => `<option value="${area}">${area}</option>`).join('');
+    }
+
+    function updateChartsForArea(area) {
+        const filteredData = historicalData.map(iteration => {
+            const areaData = iteration.businessAreas && iteration.businessAreas[area];
+            if (!areaData) return null;
+            return {
+                iterationName: iteration.iterationName,
+                effortVariance: areaData.effortVariance,
+                totalDevActual: areaData.totalDevActual,
+                totalTestActual: areaData.totalTestActual,
+                uniqueResourcesCount: areaData.uniqueResourcesCount,
+                avgHoursPerResource: areaData.avgHoursPerResource,
+                dre: areaData.dre,
+                reworkRatio: areaData.reworkRatio,
+                bugSeverity: areaData.bugSeverity,
+                bugTypeCount: areaData.bugTypeCount
+            };
+        }).filter(item => item !== null);
+
+        if (filteredData.length === 0) {
+            const chartContainers = document.querySelectorAll('#historical-analytics-view .chart-card');
+            chartContainers.forEach(card => {
+                const canvas = card.querySelector('canvas');
+                if (canvas && canvas.getContext) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = '16px Arial';
+                    ctx.fillStyle = '#999';
+                    ctx.fillText('No data for this area', 20, 50);
+                }
+            });
+            const summaryTable = document.getElementById('historicalSummaryTable');
+            if (summaryTable) summaryTable.innerHTML = '<p>No data for this business area.</p>';
+            return;
+        }
+
+        filteredData.sort((a,b) => a.iterationName.localeCompare(b.iterationName));
+        const labels = filteredData.map(d => d.iterationName);
+
+        // 1. Effort Variance
+        const effortVariances = filteredData.map(d => d.effortVariance);
+        renderLineChart('effortVarianceChart', labels, effortVariances, 'Effort Variance %', '#f39c12');
+
+        // 2. Stacked Bar: Dev vs Test Actual
+        const devActuals = filteredData.map(d => d.totalDevActual || 0);
+        const testActuals = filteredData.map(d => d.totalTestActual || 0);
+        renderStackedBarChart('workloadStackedChart', labels, [
+            { label: 'Dev Actual Hours', data: devActuals, backgroundColor: '#3498db' },
+            { label: 'Test Actual Hours', data: testActuals, backgroundColor: '#2ecc71' }
+        ], 'Hours');
+
+        // 3. Resource Capacity
+        const uniqueResources = filteredData.map(d => d.uniqueResourcesCount || 0);
+        const avgHoursPerResource = filteredData.map(d => d.avgHoursPerResource || 0);
+        renderDualBarChart('resourceChart', labels, uniqueResources, avgHoursPerResource);
+
+        // 4. DRE with target 85%
+        const dreValues = filteredData.map(d => d.dre);
+        renderLineChartWithTarget('dreTrendChart', labels, dreValues, 'DRE %', '#27ae60', 85);
+
+        // 5. Rework Ratio
+        const reworkRatios = filteredData.map(d => d.reworkRatio !== undefined ? d.reworkRatio : 0);
+        renderLineChart('reworkRatioChart', labels, reworkRatios, 'Rework Ratio %', '#e67e22');
+
+        // 6. Bug Severity Stacked Percentage
+        const severityCritical = filteredData.map(d => d.bugSeverity?.critical || 0);
+        const severityHigh = filteredData.map(d => d.bugSeverity?.high || 0);
+        const severityMedium = filteredData.map(d => d.bugSeverity?.medium || 0);
+        const severityLow = filteredData.map(d => d.bugSeverity?.low || 0);
+        renderStackedPercentageBar('bugSeverityChart', labels, [
+            { label: 'Critical', data: severityCritical, backgroundColor: '#c0392b' },
+            { label: 'High', data: severityHigh, backgroundColor: '#e67e22' },
+            { label: 'Medium', data: severityMedium, backgroundColor: '#f1c40f' },
+            { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
+        ], 'Bug Severity');
+
+        // Bug Type
+        const genericBugs = filteredData.map(d => d.bugTypeCount?.generic || 0);
+        const specificBugs = filteredData.map(d => d.bugTypeCount?.specific || 0);
+        renderStackedPercentageBar('bugTypeChart', labels, [
+            { label: 'Generic Bugs', data: genericBugs, backgroundColor: '#e67e22' },
+            { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
+        ], 'Bug Type');
+
+        // Summary Table
+        let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+            <thead><tr style="background:#2c3e50; color:white;">
+                <th style="padding:12px;">Iteration</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
+            </tr></thead><tbody>`;
+        filteredData.forEach(d => {
+            tableHtml += `<tr style="border-bottom:1px solid #eee;">
+                <td style="padding:10px;">${d.iterationName}</td>
+                <td style="text-align:center; color:${d.effortVariance > 15 ? '#e74c3c' : '#27ae60'};">${d.effortVariance}%</td>
+                <td style="text-align:center; color:${d.dre < 85 ? '#e67e22' : '#27ae60'};">${d.dre}%</td>
+                <td style="text-align:center; color:${d.reworkRatio > 15 ? '#e74c3c' : '#27ae60'};">${d.reworkRatio}%</td>
+                <td style="text-align:center;">${d.totalDevActual || 0}</td>
+                <td style="text-align:center;">${d.totalTestActual || 0}</td>
+                <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
+              </tr>`;
+        });
+        tableHtml += `</tbody>\\n    </div>\\n</div>`;
+        let existingTable = document.getElementById('historicalSummaryTable');
+        if (!existingTable) {
+            existingTable = document.createElement('div');
+            existingTable.id = 'historicalSummaryTable';
+            container.appendChild(existingTable);
+        }
+        existingTable.innerHTML = tableHtml;
+    }
+
+    const areaSelect = document.getElementById('areaSelect');
+    areaSelect.addEventListener('change', (e) => {
+        updateChartsForArea(e.target.value);
+    });
+    if (businessAreasList.length) {
+        updateChartsForArea(businessAreasList[0]);
+    }
 }
 
-// Helper for building stories from raw data without side effects (for historical sync)
+// Helper functions for historical sync (copy from original but ensure they work)
 function buildStoriesFromRawDataForHistory(data) {
     const stories = [];
     let currentStory = null;
@@ -1739,7 +1864,6 @@ function buildStoriesFromRawDataForHistory(data) {
     return stories;
 }
 
-// Helper for calculating metrics without side effects (for historical sync)
 function calculateMetricsForStoriesForHistory(stories) {
     stories.forEach(us => {
         let devOrig = 0, devActual = 0, testOrig = 0, testActual = 0;
@@ -1924,6 +2048,30 @@ function showView(viewId) {
     if (viewId === 'historical-analytics-view') renderHistoricalAnalyticsView();
 }
 
+// Holiday functions (needed for completeness)
+function addHoliday() {
+    const picker = document.getElementById('holidayPicker');
+    if (!picker || !picker.value) return;
+    if (!holidays.includes(picker.value)) {
+        holidays.push(picker.value);
+        localStorage.setItem('holidays', JSON.stringify(holidays));
+        renderHolidaysList();
+    }
+    picker.value = '';
+}
+
+function renderHolidaysList() {
+    const list = document.getElementById('holidaysList');
+    if (!list) return;
+    list.innerHTML = holidays.map(h => `<li>${h} <button onclick="removeHoliday('${h}')">Remove</button></li>`).join('');
+}
+
+function removeHoliday(holiday) {
+    holidays = holidays.filter(h => h !== holiday);
+    localStorage.setItem('holidays', JSON.stringify(holidays));
+    renderHolidaysList();
+}
+
 // ==================== Initialization ====================
 window.onload = async () => {
     const savedUser = localStorage.getItem('saved_user');
@@ -1944,4 +2092,5 @@ window.onload = async () => {
         await fetchDataFromGitHub();
     }
     if (typeof renderAzureConfigsTable === 'function') renderAzureConfigsTable();
+    renderHolidaysList();
 };
