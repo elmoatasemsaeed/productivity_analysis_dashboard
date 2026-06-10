@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        /* تنسيقات شاشة تسجيل الدخول */
+        /* login overlay styles */
         #login-overlay {
             position: fixed;
             inset: 0;
@@ -48,10 +48,8 @@
         }
         .login-card button:hover { background: #2980b9; }
         
-        /* إخفاء عناصر الإدارة افتراضياً */
         .admin-only { display: none; }
 
-        /* تنسيقات عامة للبطاقات */
         .chart-card {
             background: white;
             border-radius: 12px;
@@ -86,7 +84,6 @@
             <input type="password" id="loginPass" placeholder="Password">
             <input type="password" id="ghTokenInput" placeholder="GitHub Token">
             <input type="password" id="azurePatInput" placeholder="Azure DevOps PAT">
-            
             <label style="font-size: 0.8em; color: #555;">
                 <input type="checkbox" id="rememberMe"> Remember Me
             </label>
@@ -141,47 +138,51 @@
         <div id="people-view" class="view" style="display:none;"></div>
         <div id="not-tested-view" class="view" style="display:none;"></div>
         
-        <!-- Historical Analytics View with all charts -->
+        <!-- Historical Analytics View with new line charts & resource distribution -->
         <div id="historical-analytics-view" class="view" style="display:none; padding: 20px;">
             <h2>📊 Cross‑Iteration Performance Trends</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 25px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 25px;">
                 
-                <!-- Chart 1: Effort Variance Trend -->
+                <!-- 1. Effort Variance (EV) Line Chart -->
                 <div class="chart-card">
-                    <h3>📈 Effort Variance Trend</h3>
-                    <canvas id="effortVarianceChart" width="400" height="250"></canvas>
+                    <h3>📉 Effort Variance (EV) %</h3>
+                    <canvas id="evLineChart" width="400" height="250"></canvas>
                 </div>
                 
-                <!-- Chart 2: Dev vs Test Actual Hours (Stacked Bar) -->
+                <!-- 2. Rework Ratio (RW) Line Chart -->
                 <div class="chart-card">
-                    <h3>⚙️ Workload Breakdown (Dev vs Test)</h3>
-                    <canvas id="workloadStackedChart" width="400" height="250"></canvas>
+                    <h3>🔄 Rework Ratio (RW) %</h3>
+                    <canvas id="rwLineChart" width="400" height="250"></canvas>
                 </div>
                 
-                <!-- Chart 3: Resource Capacity & Workload -->
+                <!-- 3. Cycle Time (CT) Line Chart (days) -->
                 <div class="chart-card">
-                    <h3>👥 Resource Utilization</h3>
-                    <canvas id="resourceChart" width="400" height="250"></canvas>
+                    <h3>⏱️ Cycle Time (CT) - days</h3>
+                    <canvas id="ctLineChart" width="400" height="250"></canvas>
                 </div>
                 
-                <!-- Chart 4: Defect Leakage / DRE Trend with 15% Target -->
+                <!-- 4. Average Workload (hours per resource) -->
                 <div class="chart-card">
-                    <h3>🛡️ Defect Removal Efficiency (DRE) & Target</h3>
-                    <canvas id="dreTrendChart" width="400" height="250"></canvas>
+                    <h3>⚙️ Average Workload (hours / resource)</h3>
+                    <canvas id="avgWorkloadLineChart" width="400" height="250"></canvas>
                 </div>
                 
-                <!-- Chart 5: Rework Ratio Trend -->
+                <!-- 5. Resource Distribution: Dev / Test / DB (stacked bar) -->
                 <div class="chart-card">
-                    <h3>🔁 Rework Ratio Trend</h3>
-                    <canvas id="reworkRatioChart" width="400" height="250"></canvas>
+                    <h3>👥 Resource Distribution (Headcount)</h3>
+                    <canvas id="resourceDistChart" width="400" height="250"></canvas>
                 </div>
                 
-                <!-- Chart 6: Bug Severity & Type (100% Stacked Bar) -->
+                <!-- 6. Bug Severity Distribution (stacked %) -->
                 <div class="chart-card">
                     <h3>🐞 Bug Severity Distribution</h3>
                     <canvas id="bugSeverityChart" width="400" height="250"></canvas>
-                    <h4>Bug Type: Generic vs Specific</h4>
-                    <canvas id="bugTypeChart" width="400" height="200"></canvas>
+                </div>
+                
+                <!-- 7. Bug Type: Generic vs Specific (stacked %) -->
+                <div class="chart-card">
+                    <h3>🏷️ Bug Type: Generic vs Specific</h3>
+                    <canvas id="bugTypeChart" width="400" height="250"></canvas>
                 </div>
             </div>
             
