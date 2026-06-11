@@ -1710,20 +1710,46 @@ async function uploadHistoricalSummary(summaries) {
     if (!githubToken) return;
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
     let sha = "";
+    let fileExists = false;
+
     try {
         const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
             headers: { 'Authorization': `token ${githubToken}` }
         });
-        if (res.ok) {
+        if (res.status === 200) {
             const data = await res.json();
             sha = data.sha;
+            fileExists = true;
+        } else if (res.status === 404) {
+            fileExists = false; // الملف غير موجود، سننشئه
+        } else {
+            console.warn(`Unexpected status fetching historical_summary.json: ${res.status}`);
         }
-    } catch (e) { /* file does not exist */ }
-    await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
+    } catch (e) {
+        console.error("Error fetching file info:", e);
+    }
+
+    const body = {
+        message: "Update historical iteration summaries",
+        content: content,
+        branch: GH_CONFIG.branch
+    };
+    if (fileExists) body.sha = sha; // نرسل sha فقط إذا الملف موجود
+
+    const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
         method: 'PUT',
-        headers: { 'Authorization': `token ${githubToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Update historical iteration summaries", content: content, sha: sha, branch: GH_CONFIG.branch })
+        headers: {
+            'Authorization': `token ${githubToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
     });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("GitHub PUT error:", response.status, errorText);
+        throw new Error(`Failed to upload: ${response.status} ${errorText}`);
+    }
 }
 
 async function loadHistoricalSummary() {
