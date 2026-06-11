@@ -1409,7 +1409,6 @@ async function fetchIterationSummary(config) {
     const stories = buildStoriesFromRawDataForHistory(rawIterationData);
     calculateMetricsForStoriesForHistory(stories);
 
-    // Aggregates (overall)
     let totalStories = stories.length;
     let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalDbActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1420,8 +1419,6 @@ async function fetchIterationSummary(config) {
     let bugTypeCount = { generic: 0, specific: 0 };
     let devCount = 0, testerCount = 0, dbCount = 0;
     const devSet = new Set(), testerSet = new Set(), dbSet = new Set();
-
-    // Business area breakdown map
     const businessMap = new Map();
 
     stories.forEach(us => {
@@ -1438,15 +1435,23 @@ async function fetchIterationSummary(config) {
         const ba = businessMap.get(area);
 
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
-        const devAct = us.devEffort.actual;
-        const testAct = us.testEffort.actual;
-        const dbAct = us.dbEffort?.actual || 0;
+        // ساعات الأدوار الأساسية
+        const devActCore = us.devEffort.actual;
+        const testActCore = us.testEffort.actual;
+        const dbActCore = us.dbEffort?.actual || 0;
         const bugAct = us.rework.actualTime;
-        
+        const reviewDevAct = us.reviewStats.devActual || 0;
+        const reviewTestAct = us.reviewStats.testActual || 0;
+
+        // إجمالي عبء العمل للقصة شامل البجز والمراجعات
+        const totalDevForStory = devActCore + bugAct + reviewDevAct;
+        const totalTestForStory = testActCore + reviewTestAct;
+        const totalDbForStory = dbActCore;
+
         ba.totalEst += est;
-        ba.totalDevActual += devAct;
-        ba.totalTestActual += testAct;
-        ba.totalDbActual += dbAct;
+        ba.totalDevActual += totalDevForStory;
+        ba.totalTestActual += totalTestForStory;
+        ba.totalDbActual += totalDbForStory;
         ba.totalBugActual += bugAct;
         ba.totalStories++;
         if (us.cycleTime > 0) { ba.totalCycleTime += us.cycleTime; ba.cycleCount++; }
@@ -1458,12 +1463,29 @@ async function fetchIterationSummary(config) {
         if (us.testerLead) ba.uniqueResources.add(us.testerLead);
         us.tasks.forEach(t => {
             if (t['Assigned To']) ba.uniqueResources.add(t['Assigned To']);
-            const act = t['Activity'];
             const assignee = t['Assigned To'];
+            const act = t['Activity'];
             if (assignee) {
                 if (act === 'Development') ba.devSet.add(assignee);
                 else if (act === 'Testing') ba.testerSet.add(assignee);
                 else if (act === 'DB Modification') ba.dbSet.add(assignee);
+            }
+        });
+        // إضافة أسماء الموارد من البجز والمراجعات للمجموعات الصحيحة (لتكون الأدوار شاملة)
+        us.bugs.forEach(b => {
+            const assignee = b['Assigned To'];
+            if (assignee) {
+                ba.uniqueResources.add(assignee);
+                ba.devSet.add(assignee);  // البجز عادة يصلحها مطور
+            }
+        });
+        us.reviews.forEach(r => {
+            const assignee = r['Assigned To'];
+            if (assignee) {
+                ba.uniqueResources.add(assignee);
+                const act = r['Activity'];
+                if (act === 'Development') ba.devSet.add(assignee);
+                else if (act === 'Testing') ba.testerSet.add(assignee);
             }
         });
 
@@ -1474,11 +1496,11 @@ async function fetchIterationSummary(config) {
         ba.bugTypeCount.generic += us.rework.generic.count;
         ba.bugTypeCount.specific += us.rework.specific.count;
 
-        // Overall aggregates
+        // الإجماليات العامة
         totalEst += est;
-        totalDevActual += devAct;
-        totalTestActual += testAct;
-        totalDbActual += dbAct;
+        totalDevActual += totalDevForStory;
+        totalTestActual += totalTestForStory;
+        totalDbActual += totalDbForStory;
         totalBugActual += bugAct;
         if (us.cycleTime > 0) { totalCycleTime += us.cycleTime; cycleCount++; }
         totalInternalBugs += us.rework.count;
@@ -1488,14 +1510,31 @@ async function fetchIterationSummary(config) {
         if (us.testerLead) uniqueResources.add(us.testerLead);
         us.tasks.forEach(t => {
             if (t['Assigned To']) uniqueResources.add(t['Assigned To']);
-            const act = t['Activity'];
             const assignee = t['Assigned To'];
+            const act = t['Activity'];
             if (assignee) {
                 if (act === 'Development') devSet.add(assignee);
                 else if (act === 'Testing') testerSet.add(assignee);
                 else if (act === 'DB Modification') dbSet.add(assignee);
             }
         });
+        us.bugs.forEach(b => {
+            const assignee = b['Assigned To'];
+            if (assignee) {
+                uniqueResources.add(assignee);
+                devSet.add(assignee);
+            }
+        });
+        us.reviews.forEach(r => {
+            const assignee = r['Assigned To'];
+            if (assignee) {
+                uniqueResources.add(assignee);
+                const act = r['Activity'];
+                if (act === 'Development') devSet.add(assignee);
+                else if (act === 'Testing') testerSet.add(assignee);
+            }
+        });
+
         bugSeverity.critical += us.rework.severity.critical;
         bugSeverity.high += us.rework.severity.high;
         bugSeverity.medium += us.rework.severity.medium;
@@ -1514,13 +1553,10 @@ async function fetchIterationSummary(config) {
     const dre = totalBugs ? (totalInternalBugs / totalBugs) * 100 : 100;
     const reworkRatio = (totalDevActual + totalTestActual) ? (totalBugActual / (totalDevActual + totalTestActual)) * 100 : 0;
     const avgHoursPerResource = uniqueResources.size ? (totalDevActual + totalTestActual) / uniqueResources.size : 0;
-    
-    // Role-specific averages
     const avgDevHours = devCount ? totalDevActual / devCount : 0;
     const avgTestHours = testerCount ? totalTestActual / testerCount : 0;
     const avgDbHours = dbCount ? totalDbActual / dbCount : 0;
 
-    // Build business metrics array
     const businessMetrics = [];
     for (let [area, ba] of businessMap.entries()) {
         const baAvgCycle = ba.cycleCount ? (ba.totalCycleTime / ba.cycleCount).toFixed(1) : 0;
@@ -1529,8 +1565,6 @@ async function fetchIterationSummary(config) {
         const baDre = baTotalBugs ? (ba.totalInternalBugs / baTotalBugs) * 100 : 100;
         const baReworkRatio = (ba.totalDevActual + ba.totalTestActual) ? (ba.totalBugActual / (ba.totalDevActual + ba.totalTestActual)) * 100 : 0;
         const baAvgHoursPerRes = ba.uniqueResources.size ? (ba.totalDevActual + ba.totalTestActual) / ba.uniqueResources.size : 0;
-        
-        // Role-specific averages per business area
         const baAvgDevHours = ba.devSet.size ? ba.totalDevActual / ba.devSet.size : 0;
         const baAvgTestHours = ba.testerSet.size ? ba.totalTestActual / ba.testerSet.size : 0;
         const baAvgDbHours = ba.dbSet.size ? ba.totalDbActual / ba.dbSet.size : 0;
@@ -1634,7 +1668,7 @@ function renderFilteredCharts(historicalData, selectedArea) {
     const ctData = metricsByIteration.map(m => m.avgCycleTime);
     renderLineChart('filteredCtChart', labels, ctData, 'Cycle Time (days)', '#3498db', 'Days');
     
-    // Multi-line workload chart for business area
+    // Multi-line workload chart for business area (includes bugs & reviews)
     const devWorkload = metricsByIteration.map(m => m.avgDevHours || 0);
     const testWorkload = metricsByIteration.map(m => m.avgTestHours || 0);
     const dbWorkload = metricsByIteration.map(m => m.avgDbHours || 0);
@@ -1905,12 +1939,12 @@ async function renderHistoricalAnalyticsView() {
 
     const labels = historicalData.map(d => d.iterationName);
 
-    // === Overall charts (aggregated) ===
+    // Overall charts
     renderLineChart('evLineChart', labels, historicalData.map(d => d.effortVariance), 'Effort Variance %', '#f39c12', 'Variance %');
     renderLineChart('rwLineChart', labels, historicalData.map(d => d.reworkRatio), 'Rework Ratio %', '#e67e22', 'Rework %');
     renderLineChart('ctLineChart', labels, historicalData.map(d => d.avgCycleTime), 'Cycle Time (days)', '#3498db', 'Days');
 
-    // === Multi-line workload chart (Dev, Tester, DB) ===
+    // Multi-line workload chart (Dev, Tester, DB) - now includes bug & review hours
     const devWorkload = historicalData.map(d => d.avgDevHours || 0);
     const testWorkload = historicalData.map(d => d.avgTestHours || 0);
     const dbWorkload = historicalData.map(d => d.avgDbHours || 0);
@@ -1950,7 +1984,7 @@ async function renderHistoricalAnalyticsView() {
         { label: 'Specific Bugs', data: specificBugs, backgroundColor: '#3498db' }
     ], 'Bug Type');
 
-    // === Business area filter dropdown ===
+    // Business area filter dropdown
     const allAreas = new Set();
     historicalData.forEach(iter => {
         if (iter.businessMetrics && Array.isArray(iter.businessMetrics)) {
@@ -1996,7 +2030,7 @@ async function renderHistoricalAnalyticsView() {
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-         </tr></thead><tbody>`;
+          </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
@@ -2008,7 +2042,7 @@ async function renderHistoricalAnalyticsView() {
             <td style="text-align:center;">${d.totalDevActual || 0}</td>
             <td style="text-align:center;">${d.totalTestActual || 0}</td>
             <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-         </tr>`;
+          </tr>`;
     });
     tableHtml += `</tbody></table>`;
     let existingTable = document.getElementById('historicalSummaryTable');
