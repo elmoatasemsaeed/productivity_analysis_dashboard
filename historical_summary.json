@@ -17,6 +17,9 @@
     "avgDevHours": 12.2,
     "avgTestHours": 17.7,
     "avgDbHours": 9.2,
+    "avgDevHoursInclMeetings": 12.5,
+    "avgTestHoursInclMeetings": 17.8,
+    "avgDbHoursInclMeetings": 9.2,
     "bugSeverity": {
       "critical": 23,
       "high": 27,
@@ -50,6 +53,9 @@
         "avgDevHours": 11.1,
         "avgTestHours": 16.5,
         "avgDbHours": 3.5,
+        "avgDevHoursInclMeetings": 11.1,
+        "avgTestHoursInclMeetings": 16.5,
+        "avgDbHoursInclMeetings": 3.5,
         "bugSeverity": {
           "critical": 1,
           "high": 2,
@@ -83,6 +89,9 @@
         "avgDevHours": 12.3,
         "avgTestHours": 13.8,
         "avgDbHours": 6,
+        "avgDevHoursInclMeetings": 12.9,
+        "avgTestHoursInclMeetings": 14.1,
+        "avgDbHoursInclMeetings": 6,
         "bugSeverity": {
           "critical": 0,
           "high": 9,
@@ -116,6 +125,9 @@
         "avgDevHours": 10.3,
         "avgTestHours": 23.8,
         "avgDbHours": 4.8,
+        "avgDevHoursInclMeetings": 10.3,
+        "avgTestHoursInclMeetings": 23.8,
+        "avgDbHoursInclMeetings": 4.8,
         "bugSeverity": {
           "critical": 22,
           "high": 16,
@@ -151,6 +163,9 @@
     "avgDevHours": 13.6,
     "avgTestHours": 17.1,
     "avgDbHours": 8.6,
+    "avgDevHoursInclMeetings": 14.5,
+    "avgTestHoursInclMeetings": 17.9,
+    "avgDbHoursInclMeetings": 9.6,
     "bugSeverity": {
       "critical": 12,
       "high": 22,
@@ -184,6 +199,9 @@
         "avgDevHours": 11.8,
         "avgTestHours": 20.5,
         "avgDbHours": 2.1,
+        "avgDevHoursInclMeetings": 13.2,
+        "avgTestHoursInclMeetings": 22.2,
+        "avgDbHoursInclMeetings": 3.8,
         "bugSeverity": {
           "critical": 0,
           "high": 3,
@@ -217,6 +235,9 @@
         "avgDevHours": 6.7,
         "avgTestHours": 12.8,
         "avgDbHours": 9.5,
+        "avgDevHoursInclMeetings": 8.3,
+        "avgTestHoursInclMeetings": 14.5,
+        "avgDbHoursInclMeetings": 9.5,
         "bugSeverity": {
           "critical": 1,
           "high": 5,
@@ -250,6 +271,9 @@
         "avgDevHours": 14.5,
         "avgTestHours": 17.6,
         "avgDbHours": 6.8,
+        "avgDevHoursInclMeetings": 14.7,
+        "avgTestHoursInclMeetings": 17.6,
+        "avgDbHoursInclMeetings": 6.8,
         "bugSeverity": {
           "critical": 11,
           "high": 14,
@@ -285,6 +309,9 @@
     "avgDevHours": 13.7,
     "avgTestHours": 16.7,
     "avgDbHours": 9.6,
+    "avgDevHoursInclMeetings": 14.8,
+    "avgTestHoursInclMeetings": 16.7,
+    "avgDbHoursInclMeetings": 9.8,
     "bugSeverity": {
       "critical": 12,
       "high": 48,
@@ -318,6 +345,9 @@
         "avgDevHours": 10.8,
         "avgTestHours": 20.2,
         "avgDbHours": 11.4,
+        "avgDevHoursInclMeetings": 11,
+        "avgTestHoursInclMeetings": 20.2,
+        "avgDbHoursInclMeetings": 11.4,
         "bugSeverity": {
           "critical": 7,
           "high": 29,
@@ -351,6 +381,9 @@
         "avgDevHours": 15.4,
         "avgTestHours": 17.3,
         "avgDbHours": 3.7,
+        "avgDevHoursInclMeetings": 16.9,
+        "avgTestHoursInclMeetings": 17.3,
+        "avgDbHoursInclMeetings": 3.8,
         "bugSeverity": {
           "critical": 4,
           "high": 19,
@@ -384,6 +417,9 @@
         "avgDevHours": 8.7,
         "avgTestHours": 9.5,
         "avgDbHours": 0,
+        "avgDevHoursInclMeetings": 10.4,
+        "avgTestHoursInclMeetings": 9.5,
+        "avgDbHoursInclMeetings": 0,
         "bugSeverity": {
           "critical": 1,
           "high": 0,
@@ -419,6 +455,9 @@
     "avgDevHours": 18.3,
     "avgTestHours": 16.7,
     "avgDbHours": 11.1,
+    "avgDevHoursInclMeetings": 19.5,
+    "avgTestHoursInclMeetings": 17.2,
+    "avgDbHoursInclMeetings": 11.1,
     "bugSeverity": {
       "critical": 9,
       "high": 29,
@@ -452,6 +491,9 @@
         "avgDevHours": 15.1,
         "avgTestHours": 15.7,
         "avgDbHours": 7.7,
+        "avgDevHoursInclMeetings": 16,
+        "avgTestHoursInclMeetings": 15.9,
+        "avgDbHoursInclMeetings": 7.7,
         "bugSeverity": {
           "critical": 9,
           "high": 24,
@@ -485,6 +527,9 @@
         "avgDevHours": 6.6,
         "avgTestHours": 23.3,
         "avgDbHours": 6.8,
+        "avgDevHoursInclMeetings": 8.3,
+        "avgTestHoursInclMeetings": 24,
+        "avgDbHoursInclMeetings": 6.8,
         "bugSeverity": {
           "critical": 0,
           "high": 1,
@@ -518,6 +563,9 @@
         "avgDevHours": 26.1,
         "avgTestHours": 4.8,
         "avgDbHours": 0,
+        "avgDevHoursInclMeetings": 26.7,
+        "avgTestHoursInclMeetings": 5.8,
+        "avgDbHoursInclMeetings": 0,
         "bugSeverity": {
           "critical": 0,
           "high": 4,
@@ -553,6 +601,9 @@
     "avgDevHours": 16.2,
     "avgTestHours": 17.1,
     "avgDbHours": 3.7,
+    "avgDevHoursInclMeetings": 17.3,
+    "avgTestHoursInclMeetings": 17.9,
+    "avgDbHoursInclMeetings": 4.4,
     "bugSeverity": {
       "critical": 4,
       "high": 26,
@@ -586,6 +637,9 @@
         "avgDevHours": 16,
         "avgTestHours": 8.9,
         "avgDbHours": 4.3,
+        "avgDevHoursInclMeetings": 17.7,
+        "avgTestHoursInclMeetings": 9.6,
+        "avgDbHoursInclMeetings": 4.3,
         "bugSeverity": {
           "critical": 0,
           "high": 4,
@@ -619,6 +673,9 @@
         "avgDevHours": 18.8,
         "avgTestHours": 21.4,
         "avgDbHours": 3,
+        "avgDevHoursInclMeetings": 20,
+        "avgTestHoursInclMeetings": 22.1,
+        "avgDbHoursInclMeetings": 3.7,
         "bugSeverity": {
           "critical": 4,
           "high": 22,
@@ -652,6 +709,9 @@
         "avgDevHours": 2,
         "avgTestHours": 5.8,
         "avgDbHours": 0,
+        "avgDevHoursInclMeetings": 2,
+        "avgTestHoursInclMeetings": 6,
+        "avgDbHoursInclMeetings": 0,
         "bugSeverity": {
           "critical": 0,
           "high": 0,
@@ -687,6 +747,9 @@
     "avgDevHours": 16.7,
     "avgTestHours": 21.2,
     "avgDbHours": 7.2,
+    "avgDevHoursInclMeetings": 24.4,
+    "avgTestHoursInclMeetings": 23.8,
+    "avgDbHoursInclMeetings": 7.4,
     "bugSeverity": {
       "critical": 8,
       "high": 43,
@@ -720,6 +783,9 @@
         "avgDevHours": 18.8,
         "avgTestHours": 24.7,
         "avgDbHours": 3.3,
+        "avgDevHoursInclMeetings": 24.3,
+        "avgTestHoursInclMeetings": 26.9,
+        "avgDbHoursInclMeetings": 3.5,
         "bugSeverity": {
           "critical": 8,
           "high": 32,
@@ -753,6 +819,9 @@
         "avgDevHours": 7.8,
         "avgTestHours": 12.8,
         "avgDbHours": 4.6,
+        "avgDevHoursInclMeetings": 16.6,
+        "avgTestHoursInclMeetings": 14,
+        "avgDbHoursInclMeetings": 4.6,
         "bugSeverity": {
           "critical": 0,
           "high": 5,
@@ -786,6 +855,9 @@
         "avgDevHours": 11.7,
         "avgTestHours": 26.9,
         "avgDbHours": 3.4,
+        "avgDevHoursInclMeetings": 15.9,
+        "avgTestHoursInclMeetings": 32.3,
+        "avgDbHoursInclMeetings": 3.4,
         "bugSeverity": {
           "critical": 0,
           "high": 6,
@@ -821,6 +893,9 @@
     "avgDevHours": 21.6,
     "avgTestHours": 24,
     "avgDbHours": 15.5,
+    "avgDevHoursInclMeetings": 24.9,
+    "avgTestHoursInclMeetings": 25.1,
+    "avgDbHoursInclMeetings": 17.4,
     "bugSeverity": {
       "critical": 36,
       "high": 61,
@@ -854,6 +929,9 @@
         "avgDevHours": 30.3,
         "avgTestHours": 30.8,
         "avgDbHours": 12.4,
+        "avgDevHoursInclMeetings": 33.3,
+        "avgTestHoursInclMeetings": 32.9,
+        "avgDbHoursInclMeetings": 14.1,
         "bugSeverity": {
           "critical": 35,
           "high": 56,
@@ -887,6 +965,9 @@
         "avgDevHours": 13.7,
         "avgTestHours": 19.3,
         "avgDbHours": 9.5,
+        "avgDevHoursInclMeetings": 16.8,
+        "avgTestHoursInclMeetings": 19.5,
+        "avgDbHoursInclMeetings": 10.8,
         "bugSeverity": {
           "critical": 1,
           "high": 3,
@@ -920,6 +1001,9 @@
         "avgDevHours": 8.2,
         "avgTestHours": 8.7,
         "avgDbHours": 7.1,
+        "avgDevHoursInclMeetings": 11.9,
+        "avgTestHoursInclMeetings": 8.7,
+        "avgDbHoursInclMeetings": 7.1,
         "bugSeverity": {
           "critical": 0,
           "high": 2,
@@ -955,6 +1039,9 @@
     "avgDevHours": 14.2,
     "avgTestHours": 7.8,
     "avgDbHours": 13.5,
+    "avgDevHoursInclMeetings": 18.9,
+    "avgTestHoursInclMeetings": 8.6,
+    "avgDbHoursInclMeetings": 13.5,
     "bugSeverity": {
       "critical": 7,
       "high": 12,
@@ -988,6 +1075,9 @@
         "avgDevHours": 6.6,
         "avgTestHours": 5.6,
         "avgDbHours": 9.5,
+        "avgDevHoursInclMeetings": 7.6,
+        "avgTestHoursInclMeetings": 5.6,
+        "avgDbHoursInclMeetings": 9.5,
         "bugSeverity": {
           "critical": 0,
           "high": 1,
@@ -1021,6 +1111,9 @@
         "avgDevHours": 21.2,
         "avgTestHours": 9.5,
         "avgDbHours": 4.3,
+        "avgDevHoursInclMeetings": 28.9,
+        "avgTestHoursInclMeetings": 10.6,
+        "avgDbHoursInclMeetings": 4.3,
         "bugSeverity": {
           "critical": 1,
           "high": 5,
@@ -1054,6 +1147,9 @@
         "avgDevHours": 11.9,
         "avgTestHours": 4.5,
         "avgDbHours": 9,
+        "avgDevHoursInclMeetings": 16.5,
+        "avgTestHoursInclMeetings": 4.8,
+        "avgDbHoursInclMeetings": 9,
         "bugSeverity": {
           "critical": 6,
           "high": 6,
@@ -1089,6 +1185,9 @@
     "avgDevHours": 16.2,
     "avgTestHours": 14.5,
     "avgDbHours": 12.3,
+    "avgDevHoursInclMeetings": 19.7,
+    "avgTestHoursInclMeetings": 15,
+    "avgDbHoursInclMeetings": 12.3,
     "bugSeverity": {
       "critical": 11,
       "high": 33,
@@ -1122,6 +1221,9 @@
         "avgDevHours": 18.8,
         "avgTestHours": 11,
         "avgDbHours": 9.3,
+        "avgDevHoursInclMeetings": 22.7,
+        "avgTestHoursInclMeetings": 11.8,
+        "avgDbHoursInclMeetings": 9.3,
         "bugSeverity": {
           "critical": 0,
           "high": 7,
@@ -1155,6 +1257,9 @@
         "avgDevHours": 16.7,
         "avgTestHours": 11.3,
         "avgDbHours": 6,
+        "avgDevHoursInclMeetings": 19.4,
+        "avgTestHoursInclMeetings": 11.8,
+        "avgDbHoursInclMeetings": 6,
         "bugSeverity": {
           "critical": 3,
           "high": 6,
@@ -1188,6 +1293,9 @@
         "avgDevHours": 12.8,
         "avgTestHours": 23.4,
         "avgDbHours": 0,
+        "avgDevHoursInclMeetings": 17.2,
+        "avgTestHoursInclMeetings": 23.6,
+        "avgDbHoursInclMeetings": 0,
         "bugSeverity": {
           "critical": 8,
           "high": 20,
