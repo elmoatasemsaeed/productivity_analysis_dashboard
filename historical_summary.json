@@ -34,6 +34,52 @@
     "devCount": 24,
     "testerCount": 13,
     "dbCount": 3,
+    "devNames": [
+      "Mohamed fathy",
+      "Dina Ahmed",
+      "Ibrahim Ahmed",
+      "Fatma Fayed",
+      "Samir Mohamed",
+      "Sara Yehia",
+      "Mostafa Osama Abdelatif",
+      "Ahmed Farag",
+      "Ahmed Sakr",
+      "Yasmine Salama",
+      "Mahmoud Ahmed",
+      "Bardis Khamees",
+      "Bassem Ayman",
+      "Karim El-Saeed",
+      "Adel Salah",
+      "Alaa Ezzat",
+      "Mohamed Abd-Elalim",
+      "Mostafa Taha",
+      "Ammar Yasser",
+      "mostafa kamel",
+      "Hassan El Shenawy",
+      "Yasmine Fouad",
+      "Ahmed Hafez",
+      "Mohamed Ragab"
+    ],
+    "testerNames": [
+      "Mohamed fathy",
+      "Dina Ahmed",
+      "Sara Yehia",
+      "Mostafa Osama Abdelatif",
+      "Mahmoud Ahmed",
+      "Salah Ahmed",
+      "Mohamed Abd-Elalim",
+      "Bassem Ayman",
+      "MOHAMED SAYED",
+      "Ammar Yasser",
+      "Bothyna Mostafa",
+      "Yasmine Fouad",
+      "Mohamed Ragab"
+    ],
+    "dbNames": [
+      "Mostafa Mahmoud",
+      "Ahmed Farag",
+      "Mostafa Taha"
+    ],
     "businessMetrics": [
       {
         "area": "Registration",
@@ -69,7 +115,27 @@
         "reworkRatio": 5.7,
         "devCount": 8,
         "testerCount": 4,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "Mohamed fathy",
+          "Dina Ahmed",
+          "Ibrahim Ahmed",
+          "Fatma Fayed",
+          "Samir Mohamed",
+          "Sara Yehia",
+          "Mostafa Osama Abdelatif",
+          "Ahmed Farag"
+        ],
+        "testerNames": [
+          "Mohamed fathy",
+          "Dina Ahmed",
+          "Sara Yehia",
+          "Mostafa Osama Abdelatif"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -105,7 +171,29 @@
         "reworkRatio": 8.9,
         "devCount": 10,
         "testerCount": 5,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Ahmed Sakr",
+          "Yasmine Salama",
+          "Mahmoud Ahmed",
+          "Bardis Khamees",
+          "Bassem Ayman",
+          "Karim El-Saeed",
+          "Adel Salah",
+          "Alaa Ezzat",
+          "Mohamed Abd-Elalim",
+          "Mostafa Osama Abdelatif"
+        ],
+        "testerNames": [
+          "Mahmoud Ahmed",
+          "Salah Ahmed",
+          "Mohamed Abd-Elalim",
+          "Bassem Ayman",
+          "MOHAMED SAYED"
+        ],
+        "dbNames": [
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Internal lab",
@@ -141,7 +229,28 @@
         "reworkRatio": 21.6,
         "devCount": 8,
         "testerCount": 4,
-        "dbCount": 3
+        "dbCount": 3,
+        "devNames": [
+          "Mohamed fathy",
+          "Mostafa Taha",
+          "Ammar Yasser",
+          "mostafa kamel",
+          "Hassan El Shenawy",
+          "Yasmine Fouad",
+          "Ahmed Hafez",
+          "Mohamed Ragab"
+        ],
+        "testerNames": [
+          "Ammar Yasser",
+          "Bothyna Mostafa",
+          "Yasmine Fouad",
+          "Mohamed Ragab"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Mostafa Taha",
+          "Ahmed Farag"
+        ]
       }
     ]
   },
@@ -180,6 +289,47 @@
     "devCount": 18,
     "testerCount": 12,
     "dbCount": 5,
+    "devNames": [
+      "Ibrahim Ahmed",
+      "Fatma Fayed",
+      "Mostafa Osama Abdelatif",
+      "Dina Ahmed",
+      "Ahmed Mohamed",
+      "Mahmoud Ahmed",
+      "Bardis Khamees",
+      "Bassem Ayman",
+      "Adel Salah",
+      "Mohamed Samy",
+      "Abdullah Omara",
+      "Ammar Yasser",
+      "Ahmed Hafez",
+      "Mahmoud Mohamed",
+      "Esraa Abd El Salam",
+      "Sara Yehia",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Mostafa Taha"
+    ],
+    "testerNames": [
+      "Mostafa Mohamed",
+      "Dina Ahmed",
+      "Ibrahim Ahmed",
+      "Mahmoud Ahmed",
+      "Salah Ahmed",
+      "Bassem Ayman",
+      "Mohamed Bahaa",
+      "Yasmine Fouad",
+      "Ammar Yasser",
+      "Mahmoud Mohamed",
+      "Sara Yehia",
+      "Mohamed Abd-Elalim"
+    ],
+    "dbNames": [
+      "Ahmed Farag",
+      "Mostafa Mahmoud",
+      "Ibrahim Ahmed",
+      "Ahmed Attia",
+      "Karim El-Saeed"
+    ],
     "businessMetrics": [
       {
         "area": "Registration",
@@ -215,7 +365,24 @@
         "reworkRatio": 6.6,
         "devCount": 5,
         "testerCount": 3,
-        "dbCount": 3
+        "dbCount": 3,
+        "devNames": [
+          "Ibrahim Ahmed",
+          "Fatma Fayed",
+          "Mostafa Osama Abdelatif",
+          "Dina Ahmed",
+          "Ahmed Mohamed"
+        ],
+        "testerNames": [
+          "Mostafa Mohamed",
+          "Dina Ahmed",
+          "Ibrahim Ahmed"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Mostafa Mahmoud",
+          "Ibrahim Ahmed"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -251,7 +418,21 @@
         "reworkRatio": 8.8,
         "devCount": 4,
         "testerCount": 3,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Mahmoud Ahmed",
+          "Bardis Khamees",
+          "Bassem Ayman",
+          "Adel Salah"
+        ],
+        "testerNames": [
+          "Mahmoud Ahmed",
+          "Salah Ahmed",
+          "Bassem Ayman"
+        ],
+        "dbNames": [
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Internal lab",
@@ -287,7 +468,34 @@
         "reworkRatio": 10.7,
         "devCount": 11,
         "testerCount": 6,
-        "dbCount": 4
+        "dbCount": 4,
+        "devNames": [
+          "Mohamed Samy",
+          "Abdullah Omara",
+          "Adel Salah",
+          "Bardis Khamees",
+          "Ammar Yasser",
+          "Ahmed Hafez",
+          "Mahmoud Mohamed",
+          "Esraa Abd El Salam",
+          "Sara Yehia",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Mostafa Taha"
+        ],
+        "testerNames": [
+          "Mohamed Bahaa",
+          "Yasmine Fouad",
+          "Ammar Yasser",
+          "Mahmoud Mohamed",
+          "Sara Yehia",
+          "Mohamed Abd-Elalim"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Attia",
+          "Ahmed Farag",
+          "Karim El-Saeed"
+        ]
       }
     ]
   },
@@ -326,6 +534,56 @@
     "devCount": 24,
     "testerCount": 13,
     "dbCount": 7,
+    "devNames": [
+      "Esraa Abd El Salam",
+      "Mohamed Ragab",
+      "Mostafa Taha",
+      "Mohamed Salah-Eddin",
+      "Ahmed Hafez",
+      "Mahmoud Mohamed",
+      "Ammar Yasser",
+      "Mohamed Samy",
+      "Mohamed Abd-Elalim",
+      "Yasmine Fouad",
+      "Aya Saed Mustafa Mohamad Bayoumi",
+      "Fatma Fayed",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Dina Ahmed",
+      "Adel Salah",
+      "Mostafa Osama Abdelatif",
+      "Ahmed Gamal",
+      "Ahmed Mohamed",
+      "Sara Yehia",
+      "Ibrahim Ahmed",
+      "Mostafa Mohamed",
+      "Mahmoud Ahmed",
+      "Bardis Khamees",
+      "MOHAMED SAYED"
+    ],
+    "testerNames": [
+      "Mohamed Ragab",
+      "Yasmine Fouad",
+      "Ammar Yasser",
+      "Mahmoud Mohamed",
+      "Mohamed Abd-Elalim",
+      "Dina Ahmed",
+      "Mostafa Mohamed",
+      "Ahmed Mohamed",
+      "Sara Yehia",
+      "MOHAMED SAYED",
+      "Salah Ahmed",
+      "Amr Mohamed",
+      "Bassem Ayman"
+    ],
+    "dbNames": [
+      "Ahmed Farag",
+      "Moamen SalahElDeen",
+      "Ahmed Attia",
+      "Mostafa Mahmoud",
+      "Aya Saed Mustafa Mohamad Bayoumi",
+      "Karim El-Saeed",
+      "Ibrahim Ahmed"
+    ],
     "businessMetrics": [
       {
         "area": "Internal lab",
@@ -361,7 +619,32 @@
         "reworkRatio": 21.9,
         "devCount": 10,
         "testerCount": 5,
-        "dbCount": 4
+        "dbCount": 4,
+        "devNames": [
+          "Esraa Abd El Salam",
+          "Mohamed Ragab",
+          "Mostafa Taha",
+          "Mohamed Salah-Eddin",
+          "Ahmed Hafez",
+          "Mahmoud Mohamed",
+          "Ammar Yasser",
+          "Mohamed Samy",
+          "Mohamed Abd-Elalim",
+          "Yasmine Fouad"
+        ],
+        "testerNames": [
+          "Mohamed Ragab",
+          "Yasmine Fouad",
+          "Ammar Yasser",
+          "Mahmoud Mohamed",
+          "Mohamed Abd-Elalim"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Moamen SalahElDeen",
+          "Ahmed Attia",
+          "Mostafa Mahmoud"
+        ]
       },
       {
         "area": "Registration",
@@ -397,7 +680,35 @@
         "reworkRatio": 15.5,
         "devCount": 12,
         "testerCount": 4,
-        "dbCount": 6
+        "dbCount": 6,
+        "devNames": [
+          "Aya Saed Mustafa Mohamad Bayoumi",
+          "Fatma Fayed",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Dina Ahmed",
+          "Adel Salah",
+          "Mostafa Osama Abdelatif",
+          "Ahmed Gamal",
+          "Ahmed Mohamed",
+          "Sara Yehia",
+          "Ibrahim Ahmed",
+          "Mostafa Mohamed",
+          "Mohamed Abd-Elalim"
+        ],
+        "testerNames": [
+          "Dina Ahmed",
+          "Mostafa Mohamed",
+          "Ahmed Mohamed",
+          "Sara Yehia"
+        ],
+        "dbNames": [
+          "Aya Saed Mustafa Mohamad Bayoumi",
+          "Mostafa Mahmoud",
+          "Karim El-Saeed",
+          "Ahmed Farag",
+          "Ahmed Attia",
+          "Ibrahim Ahmed"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -433,7 +744,21 @@
         "reworkRatio": 0.6,
         "devCount": 4,
         "testerCount": 5,
-        "dbCount": 0
+        "dbCount": 0,
+        "devNames": [
+          "Mahmoud Ahmed",
+          "Adel Salah",
+          "Bardis Khamees",
+          "MOHAMED SAYED"
+        ],
+        "testerNames": [
+          "MOHAMED SAYED",
+          "Salah Ahmed",
+          "Amr Mohamed",
+          "Mohamed Abd-Elalim",
+          "Bassem Ayman"
+        ],
+        "dbNames": []
       }
     ]
   },
@@ -472,6 +797,43 @@
     "devCount": 18,
     "testerCount": 9,
     "dbCount": 4,
+    "devNames": [
+      "Mostafa Taha",
+      "Bassem Ayman",
+      "Mohamed Salah-Eddin",
+      "Mohamed Hany",
+      "Abdullah Omara",
+      "Bardis Khamees",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Mohamed Ragab",
+      "Mohamed Abd-Elalim",
+      "Mohamed Samy",
+      "Ammar Yasser",
+      "Karim El-Saeed",
+      "Adel Salah",
+      "Mahmoud Ahmed",
+      "mostafa kamel",
+      "Ahmed Gamal",
+      "Fatma Fayed",
+      "Ahmed Mohamed"
+    ],
+    "testerNames": [
+      "Bassem Ayman",
+      "Yasmine Fouad",
+      "Mohamed Abd-Elalim",
+      "Dina Ahmed",
+      "Bothyna Mostafa",
+      "Ammar Yasser",
+      "Salah Ahmed",
+      "Ahmed Mohamed",
+      "Ahmed Gamal"
+    ],
+    "dbNames": [
+      "Mostafa Taha",
+      "Ahmed Farag",
+      "Mostafa Mahmoud",
+      "Ahmed Attia"
+    ],
     "businessMetrics": [
       {
         "area": "Internal lab",
@@ -507,7 +869,34 @@
         "reworkRatio": 23.4,
         "devCount": 11,
         "testerCount": 6,
-        "dbCount": 4
+        "dbCount": 4,
+        "devNames": [
+          "Mostafa Taha",
+          "Bassem Ayman",
+          "Mohamed Salah-Eddin",
+          "Mohamed Hany",
+          "Abdullah Omara",
+          "Bardis Khamees",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Mohamed Ragab",
+          "Mohamed Abd-Elalim",
+          "Mohamed Samy",
+          "Ammar Yasser"
+        ],
+        "testerNames": [
+          "Bassem Ayman",
+          "Yasmine Fouad",
+          "Mohamed Abd-Elalim",
+          "Dina Ahmed",
+          "Bothyna Mostafa",
+          "Ammar Yasser"
+        ],
+        "dbNames": [
+          "Mostafa Taha",
+          "Ahmed Farag",
+          "Mostafa Mahmoud",
+          "Ahmed Attia"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -543,7 +932,22 @@
         "reworkRatio": 6.6,
         "devCount": 5,
         "testerCount": 2,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "Karim El-Saeed",
+          "Adel Salah",
+          "Bardis Khamees",
+          "Mahmoud Ahmed",
+          "Mohamed Abd-Elalim"
+        ],
+        "testerNames": [
+          "Mohamed Abd-Elalim",
+          "Salah Ahmed"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Mostafa Mahmoud"
+        ]
       },
       {
         "area": "Registration",
@@ -579,7 +983,19 @@
         "reworkRatio": 6.9,
         "devCount": 5,
         "testerCount": 2,
-        "dbCount": 0
+        "dbCount": 0,
+        "devNames": [
+          "mostafa kamel",
+          "Adel Salah",
+          "Ahmed Gamal",
+          "Fatma Fayed",
+          "Ahmed Mohamed"
+        ],
+        "testerNames": [
+          "Ahmed Mohamed",
+          "Ahmed Gamal"
+        ],
+        "dbNames": []
       }
     ]
   },
@@ -618,6 +1034,44 @@
     "devCount": 17,
     "testerCount": 9,
     "dbCount": 6,
+    "devNames": [
+      "Mostafa Osama Abdelatif",
+      "Fatma Fayed",
+      "Ahmed Gamal",
+      "Ahmed Mohamed",
+      "Mohamed Salah-Eddin",
+      "mohamed.abdelghany",
+      "Mahmoud Mohamed",
+      "Mohamed Samy",
+      "Mohamed Abd-Elalim",
+      "Bothyna Mostafa",
+      "Mohamed Hany",
+      "Dina Ahmed",
+      "Mostafa Taha",
+      "Mohamed Ragab",
+      "Esraa Abd El Salam",
+      "Adel Salah",
+      "Bardis Khamees"
+    ],
+    "testerNames": [
+      "Dina Ahmed",
+      "Mostafa Mohamed",
+      "Ahmed Mohamed",
+      "Mohamed Abd-Elalim",
+      "Mahmoud Mohamed",
+      "Bothyna Mostafa",
+      "Yasmine Fouad",
+      "Mohamed Ragab",
+      "Salah Ahmed"
+    ],
+    "dbNames": [
+      "Mostafa Mahmoud",
+      "Ahmed Farag",
+      "Ahmed Attia",
+      "Moamen SalahElDeen",
+      "Mohamed Hany",
+      "Mohamed Salah-Eddin"
+    ],
     "businessMetrics": [
       {
         "area": "Registration",
@@ -653,7 +1107,22 @@
         "reworkRatio": 1.8,
         "devCount": 4,
         "testerCount": 4,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Mostafa Osama Abdelatif",
+          "Fatma Fayed",
+          "Ahmed Gamal",
+          "Ahmed Mohamed"
+        ],
+        "testerNames": [
+          "Dina Ahmed",
+          "Mostafa Mohamed",
+          "Ahmed Mohamed",
+          "Mohamed Abd-Elalim"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud"
+        ]
       },
       {
         "area": "Internal lab",
@@ -689,7 +1158,35 @@
         "reworkRatio": 20.1,
         "devCount": 11,
         "testerCount": 5,
-        "dbCount": 6
+        "dbCount": 6,
+        "devNames": [
+          "Mohamed Salah-Eddin",
+          "mohamed.abdelghany",
+          "Mahmoud Mohamed",
+          "Mohamed Samy",
+          "Mohamed Abd-Elalim",
+          "Bothyna Mostafa",
+          "Mohamed Hany",
+          "Dina Ahmed",
+          "Mostafa Taha",
+          "Mohamed Ragab",
+          "Esraa Abd El Salam"
+        ],
+        "testerNames": [
+          "Mahmoud Mohamed",
+          "Bothyna Mostafa",
+          "Mohamed Abd-Elalim",
+          "Yasmine Fouad",
+          "Mohamed Ragab"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Farag",
+          "Ahmed Attia",
+          "Moamen SalahElDeen",
+          "Mohamed Hany",
+          "Mohamed Salah-Eddin"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -725,7 +1222,16 @@
         "reworkRatio": 0,
         "devCount": 2,
         "testerCount": 2,
-        "dbCount": 0
+        "dbCount": 0,
+        "devNames": [
+          "Adel Salah",
+          "Bardis Khamees"
+        ],
+        "testerNames": [
+          "Mohamed Abd-Elalim",
+          "Salah Ahmed"
+        ],
+        "dbNames": []
       }
     ]
   },
@@ -764,6 +1270,47 @@
     "devCount": 21,
     "testerCount": 9,
     "dbCount": 5,
+    "devNames": [
+      "Ola Gamal",
+      "Mohamed Salah-Eddin",
+      "Yasmine Fouad",
+      "Mahmoud Ahmed",
+      "Bardis Khamees",
+      "mohamed.abdelghany",
+      "Mahmoud Mohamed",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Mohamed Ragab",
+      "Moamen SalahElDeen",
+      "Esraa Abd El Salam",
+      "Karim El-Saeed",
+      "Adel Salah",
+      "Bassem Ayman",
+      "Fatma Fayed",
+      "Dina Ahmed",
+      "Aya Saed Mustafa Mohamad Bayoumi",
+      "Mohamed Abd-Elalim",
+      "Ibrahim Ahmed",
+      "Samir Mohamed",
+      "Ahmed Mohamed"
+    ],
+    "testerNames": [
+      "Yasmine Fouad",
+      "Bothyna Mostafa",
+      "Mahmoud Mohamed",
+      "Mohamed Ragab",
+      "Bassem Ayman",
+      "Salah Ahmed",
+      "Dina Ahmed",
+      "Mohamed Abd-Elalim",
+      "Mostafa Mohamed"
+    ],
+    "dbNames": [
+      "Ahmed Attia",
+      "Ahmed Farag",
+      "Mostafa Mahmoud",
+      "Mohamed Qassem",
+      "Mohamed Salah-Eddin"
+    ],
     "businessMetrics": [
       {
         "area": "Internal lab",
@@ -799,7 +1346,33 @@
         "reworkRatio": 27.3,
         "devCount": 11,
         "testerCount": 4,
-        "dbCount": 5
+        "dbCount": 5,
+        "devNames": [
+          "Ola Gamal",
+          "Mohamed Salah-Eddin",
+          "Yasmine Fouad",
+          "Mahmoud Ahmed",
+          "Bardis Khamees",
+          "mohamed.abdelghany",
+          "Mahmoud Mohamed",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Mohamed Ragab",
+          "Moamen SalahElDeen",
+          "Esraa Abd El Salam"
+        ],
+        "testerNames": [
+          "Yasmine Fouad",
+          "Bothyna Mostafa",
+          "Mahmoud Mohamed",
+          "Mohamed Ragab"
+        ],
+        "dbNames": [
+          "Ahmed Attia",
+          "Ahmed Farag",
+          "Mostafa Mahmoud",
+          "Mohamed Qassem",
+          "Mohamed Salah-Eddin"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -835,7 +1408,26 @@
         "reworkRatio": 11.1,
         "devCount": 8,
         "testerCount": 3,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "Karim El-Saeed",
+          "Bardis Khamees",
+          "Adel Salah",
+          "Bassem Ayman",
+          "mohamed.abdelghany",
+          "Fatma Fayed",
+          "Dina Ahmed",
+          "Mahmoud Ahmed"
+        ],
+        "testerNames": [
+          "Bassem Ayman",
+          "Salah Ahmed",
+          "Dina Ahmed"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Mostafa Mahmoud"
+        ]
       },
       {
         "area": "Registration",
@@ -871,7 +1463,25 @@
         "reworkRatio": 5.4,
         "devCount": 7,
         "testerCount": 2,
-        "dbCount": 3
+        "dbCount": 3,
+        "devNames": [
+          "Aya Saed Mustafa Mohamad Bayoumi",
+          "Fatma Fayed",
+          "Mohamed Abd-Elalim",
+          "Ibrahim Ahmed",
+          "Samir Mohamed",
+          "Adel Salah",
+          "Ahmed Mohamed"
+        ],
+        "testerNames": [
+          "Mohamed Abd-Elalim",
+          "Mostafa Mohamed"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Mostafa Mahmoud",
+          "Ahmed Attia"
+        ]
       }
     ]
   },
@@ -910,6 +1520,60 @@
     "devCount": 25,
     "testerCount": 14,
     "dbCount": 9,
+    "devNames": [
+      "Mohamed Hany",
+      "Mohamed Salah-Eddin",
+      "Mahmoud Mohamed",
+      "Mohamed Samy",
+      "Yasmine Fouad",
+      "Mostafa Taha",
+      "Ola Gamal",
+      "Esraa Abd El Salam",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Ammar Yasser",
+      "Dina Ahmed",
+      "Mohamed Ragab",
+      "Mohamed Fawzy",
+      "Aya Saed Mustafa Mohamad Bayoumi",
+      "Fatma Fayed",
+      "Ibrahim Ahmed",
+      "Adel Salah",
+      "Mohamed Abd-Elalim",
+      "Samir Mohamed",
+      "Mostafa Mamdouh",
+      "mohamed.abdelghany",
+      "Bardis Khamees",
+      "Amr Mohamed",
+      "Mahmoud Ahmed",
+      "Alaa Ezzat"
+    ],
+    "testerNames": [
+      "Mahmoud Mohamed",
+      "Yasmine Fouad",
+      "Bothyna Mostafa",
+      "Ammar Yasser",
+      "Dina Ahmed",
+      "Amr Mohamed",
+      "Mohamed Ragab",
+      "Mohamed Abd-Elalim",
+      "Mostafa Mohamed",
+      "Ahmed Mohamed",
+      "Mostafa Mamdouh",
+      "Alaa Ezzat",
+      "Bassem Ayman",
+      "Salah Ahmed"
+    ],
+    "dbNames": [
+      "Mostafa Mahmoud",
+      "Ahmed Farag",
+      "Mostafa Taha",
+      "Moamen SalahElDeen",
+      "Mohamed Qassem",
+      "Samar Mahmoud Abdelraouf Algammal",
+      "Karim El-Saeed",
+      "Ahmed Attia",
+      "Ibrahim Ahmed"
+    ],
     "businessMetrics": [
       {
         "area": "Internal lab",
@@ -945,7 +1609,40 @@
         "reworkRatio": 24.5,
         "devCount": 13,
         "testerCount": 7,
-        "dbCount": 7
+        "dbCount": 7,
+        "devNames": [
+          "Mohamed Hany",
+          "Mohamed Salah-Eddin",
+          "Mahmoud Mohamed",
+          "Mohamed Samy",
+          "Yasmine Fouad",
+          "Mostafa Taha",
+          "Ola Gamal",
+          "Esraa Abd El Salam",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Ammar Yasser",
+          "Dina Ahmed",
+          "Mohamed Ragab",
+          "Mohamed Fawzy"
+        ],
+        "testerNames": [
+          "Mahmoud Mohamed",
+          "Yasmine Fouad",
+          "Bothyna Mostafa",
+          "Ammar Yasser",
+          "Dina Ahmed",
+          "Amr Mohamed",
+          "Mohamed Ragab"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Farag",
+          "Mostafa Taha",
+          "Moamen SalahElDeen",
+          "Mohamed Qassem",
+          "Samar Mahmoud Abdelraouf Algammal",
+          "Karim El-Saeed"
+        ]
       },
       {
         "area": "Registration",
@@ -981,7 +1678,28 @@
         "reworkRatio": 3.3,
         "devCount": 7,
         "testerCount": 4,
-        "dbCount": 4
+        "dbCount": 4,
+        "devNames": [
+          "Aya Saed Mustafa Mohamad Bayoumi",
+          "Fatma Fayed",
+          "Ibrahim Ahmed",
+          "Adel Salah",
+          "Mohamed Abd-Elalim",
+          "Samir Mohamed",
+          "Mostafa Mamdouh"
+        ],
+        "testerNames": [
+          "Mohamed Abd-Elalim",
+          "Mostafa Mohamed",
+          "Ahmed Mohamed",
+          "Mostafa Mamdouh"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Ahmed Attia",
+          "Mostafa Mahmoud",
+          "Ibrahim Ahmed"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -1017,7 +1735,26 @@
         "reworkRatio": 2.4,
         "devCount": 6,
         "testerCount": 5,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "mohamed.abdelghany",
+          "Bardis Khamees",
+          "Amr Mohamed",
+          "Adel Salah",
+          "Mahmoud Ahmed",
+          "Alaa Ezzat"
+        ],
+        "testerNames": [
+          "Amr Mohamed",
+          "Alaa Ezzat",
+          "Bassem Ayman",
+          "Salah Ahmed",
+          "Dina Ahmed"
+        ],
+        "dbNames": [
+          "Ahmed Farag",
+          "Ahmed Attia"
+        ]
       }
     ]
   },
@@ -1056,6 +1793,44 @@
     "devCount": 19,
     "testerCount": 11,
     "dbCount": 2,
+    "devNames": [
+      "Mohamed Ahmed",
+      "Fatma Fayed",
+      "Mahmoud Essam",
+      "Samir Mohamed",
+      "Ahmed Mohamed",
+      "Mostafa Mohamed",
+      "Karim El-Saeed",
+      "Adel Salah",
+      "gamal kasem",
+      "Saddam Raees",
+      "mohamed.abdelghany",
+      "Bardis Khamees",
+      "Bassem Ayman",
+      "Mahmoud Ahmed",
+      "Ola Gamal",
+      "Mohamed Salah-Eddin",
+      "Esraa Abd El Salam",
+      "Yasmine Fouad",
+      "Mohamed Ragab"
+    ],
+    "testerNames": [
+      "Ahmed Mohamed",
+      "Mostafa Mohamed",
+      "Saddam Raees",
+      "Salah Ahmed",
+      "Bassem Ayman",
+      "mohamed.abdelghany",
+      "Dina Ahmed",
+      "Amr Mohamed",
+      "Alaa Ezzat",
+      "Mohamed Ragab",
+      "Yasmine Fouad"
+    ],
+    "dbNames": [
+      "Ahmed Farag",
+      "Mostafa Mahmoud"
+    ],
     "businessMetrics": [
       {
         "area": "Registration",
@@ -1091,7 +1866,22 @@
         "reworkRatio": 6.9,
         "devCount": 6,
         "testerCount": 2,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Mohamed Ahmed",
+          "Fatma Fayed",
+          "Mahmoud Essam",
+          "Samir Mohamed",
+          "Ahmed Mohamed",
+          "Mostafa Mohamed"
+        ],
+        "testerNames": [
+          "Ahmed Mohamed",
+          "Mostafa Mohamed"
+        ],
+        "dbNames": [
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -1127,7 +1917,29 @@
         "reworkRatio": 4.3,
         "devCount": 8,
         "testerCount": 6,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "Karim El-Saeed",
+          "Adel Salah",
+          "gamal kasem",
+          "Saddam Raees",
+          "mohamed.abdelghany",
+          "Bardis Khamees",
+          "Bassem Ayman",
+          "Mahmoud Ahmed"
+        ],
+        "testerNames": [
+          "Saddam Raees",
+          "Salah Ahmed",
+          "Bassem Ayman",
+          "mohamed.abdelghany",
+          "Dina Ahmed",
+          "Amr Mohamed"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Internal lab",
@@ -1163,7 +1975,23 @@
         "reworkRatio": 23.2,
         "devCount": 5,
         "testerCount": 4,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Ola Gamal",
+          "Mohamed Salah-Eddin",
+          "Esraa Abd El Salam",
+          "Yasmine Fouad",
+          "Mohamed Ragab"
+        ],
+        "testerNames": [
+          "Alaa Ezzat",
+          "Amr Mohamed",
+          "Mohamed Ragab",
+          "Yasmine Fouad"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud"
+        ]
       }
     ]
   },
@@ -1202,6 +2030,43 @@
     "devCount": 18,
     "testerCount": 11,
     "dbCount": 2,
+    "devNames": [
+      "Mohamed Ahmed",
+      "Fatma Fayed",
+      "Ahmed Mohamed",
+      "Mahmoud Essam",
+      "Samir Mohamed",
+      "Adel Salah",
+      "mohamed.abdelghany",
+      "Bardis Khamees",
+      "Hesham Elsayed",
+      "Saddam Raees",
+      "Karim El-Saeed",
+      "gamal kasem",
+      "Dina Ahmed",
+      "Ola Gamal",
+      "Mohamed Salah-Eddin",
+      "Mohamed Ragab",
+      "Mostafa Mahmoud",
+      "Yasmine Fouad"
+    ],
+    "testerNames": [
+      "Ahmed Mohamed",
+      "Mostafa Mohamed",
+      "Mohamed Abd-Elalim",
+      "Mostafa Mamdouh",
+      "Dina Ahmed",
+      "Amr Mohamed",
+      "Saddam Raees",
+      "Salah Ahmed",
+      "Mohamed Ragab",
+      "Yasmine Fouad",
+      "Bothyna Mostafa"
+    ],
+    "dbNames": [
+      "Mostafa Mahmoud",
+      "Ahmed Farag"
+    ],
     "businessMetrics": [
       {
         "area": "Registration",
@@ -1237,7 +2102,24 @@
         "reworkRatio": 6,
         "devCount": 5,
         "testerCount": 4,
-        "dbCount": 2
+        "dbCount": 2,
+        "devNames": [
+          "Mohamed Ahmed",
+          "Fatma Fayed",
+          "Ahmed Mohamed",
+          "Mahmoud Essam",
+          "Samir Mohamed"
+        ],
+        "testerNames": [
+          "Ahmed Mohamed",
+          "Mostafa Mohamed",
+          "Mohamed Abd-Elalim",
+          "Mostafa Mamdouh"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud",
+          "Ahmed Farag"
+        ]
       },
       {
         "area": "Front and Financial",
@@ -1273,7 +2155,26 @@
         "reworkRatio": 20.8,
         "devCount": 8,
         "testerCount": 4,
-        "dbCount": 1
+        "dbCount": 1,
+        "devNames": [
+          "Adel Salah",
+          "mohamed.abdelghany",
+          "Bardis Khamees",
+          "Hesham Elsayed",
+          "Saddam Raees",
+          "Karim El-Saeed",
+          "gamal kasem",
+          "Dina Ahmed"
+        ],
+        "testerNames": [
+          "Dina Ahmed",
+          "Amr Mohamed",
+          "Saddam Raees",
+          "Salah Ahmed"
+        ],
+        "dbNames": [
+          "Mostafa Mahmoud"
+        ]
       },
       {
         "area": "Internal lab",
@@ -1309,7 +2210,20 @@
         "reworkRatio": 25.6,
         "devCount": 5,
         "testerCount": 3,
-        "dbCount": 0
+        "dbCount": 0,
+        "devNames": [
+          "Ola Gamal",
+          "Mohamed Salah-Eddin",
+          "Mohamed Ragab",
+          "Mostafa Mahmoud",
+          "Yasmine Fouad"
+        ],
+        "testerNames": [
+          "Mohamed Ragab",
+          "Yasmine Fouad",
+          "Bothyna Mostafa"
+        ],
+        "dbNames": []
       }
     ]
   }
