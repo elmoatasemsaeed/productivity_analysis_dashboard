@@ -1711,36 +1711,47 @@ async function uploadHistoricalSummary(summaries) {
         console.error("No GitHub token available");
         return;
     }
-    
+
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
     const fileUrl = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`;
     let sha = null;
-    
-    // 1. محاولة جلب الملف للحصول على sha إذا كان موجوداً
+
+    // 1. محاولة جلب الملف للحصول على sha
     try {
-        const getRes = await fetch(fileUrl, {
+        // أضف ?ref=BRANCH للتأكد من القراءة من الفرع الصحيح
+        const getUrl = `${fileUrl}?ref=${GH_CONFIG.branch}`;
+        const getRes = await fetch(getUrl, {
             headers: {
                 'Authorization': `token ${githubToken}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
-        
+
         if (getRes.status === 200) {
             const data = await getRes.json();
-            sha = data.sha;
-            console.log("File exists, sha:", sha);
+            console.log("Full file metadata from GitHub:", data); // للتشخيص
+            if (data.sha) {
+                sha = data.sha;
+                console.log("File exists, sha:", sha);
+            } else {
+                console.warn("File exists but sha field missing. Response structure:", Object.keys(data));
+                // محاولة بديلة: قد يكون الـ sha موجوداً داخل content.sha? لكن API الرسمي يضعه في الجذر.
+                // إذا لم نجده نعتبر الملف تالفاً ونتابع بدون sha (سيتم رفض الطلب، لكننا سنجرب)
+            }
         } else if (getRes.status === 404) {
             console.log("File does not exist, will create new one");
-            sha = null; // لا نحتاج sha للملف الجديد
+            sha = null;
         } else {
             console.warn(`Unexpected status ${getRes.status} while fetching file info`);
             throw new Error(`Failed to get file info: ${getRes.status}`);
         }
     } catch (err) {
         console.error("Error checking existing file:", err);
-        throw err; // نوقف العملية إذا فشل جلب معلومات الملف
+        // لا نرمي الخطأ فوراً، بل نحاول المتابعة بدون sha (قد ينجح إذا كان الملف غير موجود فعلاً)
+        // لكن الأفضل إيقاف العملية لأنها فشلت في تحديد حالة الملف
+        throw err;
     }
-    
+
     // 2. بناء جسم الطلب
     const body = {
         message: "Update historical iteration summaries",
@@ -1748,9 +1759,12 @@ async function uploadHistoricalSummary(summaries) {
         branch: GH_CONFIG.branch
     };
     if (sha) {
-        body.sha = sha; // نضيف sha فقط إذا كان الملف موجوداً
+        body.sha = sha;
+    } else if (sha === null && (await fileExistsOnGitHub(fileUrl))) {
+        // إذا كان الملف موجوداً لكننا فشلنا في الحصول على sha، نرفض المتابعة
+        throw new Error("Cannot update existing file: missing sha. Please delete the file manually or check permissions.");
     }
-    
+
     // 3. تنفيذ PUT
     const putRes = await fetch(fileUrl, {
         method: 'PUT',
@@ -1761,15 +1775,28 @@ async function uploadHistoricalSummary(summaries) {
         },
         body: JSON.stringify(body)
     });
-    
+
     if (!putRes.ok) {
         const errorText = await putRes.text();
         console.error("GitHub PUT error:", putRes.status, errorText);
         throw new Error(`Failed to upload: ${putRes.status} ${errorText}`);
     }
-    
+
     console.log("Upload successful");
 }
+
+// دالة مساعدة للتحقق من وجود الملف (اختيارية)
+async function fileExistsOnGitHub(fileUrl) {
+    try {
+        const res = await fetch(`${fileUrl}?ref=${GH_CONFIG.branch}`, {
+            headers: { 'Authorization': `token ${githubToken}` }
+        });
+        return res.status === 200;
+    } catch {
+        return false;
+    }
+}
+
 async function loadHistoricalSummary() {
     if (!githubToken) return null;
     try {
