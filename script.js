@@ -2,7 +2,7 @@
 let rawData = [];
 let processedStories = [];
 let holidays = JSON.parse(localStorage.getItem('holidays') || "[]");
-let githubToken = localStorage.getItem('gh_token') || ""; 
+let githubToken = localStorage.getItem('gh_token') || "";
 
 // GitHub Configuration
 const GH_CONFIG = {
@@ -37,7 +37,7 @@ let resourceDistChart = null, bugSeverityChart = null, bugTypeChart = null;
 
 function saveUsers() {
     localStorage.setItem('app_users', JSON.stringify(users));
-    renderUsersTable(); 
+    renderUsersTable();
 }
 
 async function attemptLogin() {
@@ -80,9 +80,7 @@ function renderUsersTable() {
             <td>${u}</td>
             <td>${users[u].pass}</td>
             <td>${users[u].role}</td>
-            <td>
-                <button onclick="deleteUser('${u}')" style="background:#e74c3c; padding:5px; color:white; border:none; border-radius:3px;">Delete</button>
-            </td>
+            <td><button onclick="deleteUser('${u}')" style="background:#e74c3c; padding:5px; color:white; border:none; border-radius:3px;">Delete</button></td>
         </tr>
     `).join('');
 }
@@ -94,8 +92,8 @@ async function addUser() {
 
     if (name && pass) {
         users[name] = { pass: pass, role: role };
-        localStorage.setItem('app_users', JSON.stringify(users)); 
-        await uploadUsersToGitHub(); 
+        localStorage.setItem('app_users', JSON.stringify(users));
+        await uploadUsersToGitHub();
         alert("User saved and synced to GitHub!");
         document.getElementById('newUserName').value = '';
         document.getElementById('newUserPass').value = '';
@@ -186,7 +184,7 @@ async function fetchDataFromGitHub() {
             const content = await res.text();
             rawData = JSON.parse(content);
             updateIterationDropdown();
-            processData(); 
+            processData();
             await loadConfigsFromCloud();
             if (typeof renderAzureConfigsTable === 'function') {
                 renderAzureConfigsTable();
@@ -246,18 +244,18 @@ function processData() {
 function calculateMetrics() {
     processedStories.forEach(us => {
         let devOrig = 0, devActual = 0, testOrig = 0, testActual = 0;
-        let dbOrig = 0, dbActual = 0, dbNames = new Set(); 
+        let dbOrig = 0, dbActual = 0, dbNames = new Set();
 
         us.tasks.forEach(t => {
             const orig = parseFloat(t['Original Estimation']) || 0;
-            const actDev = parseFloat(t['TimeSheet_DevActualTime']) || 0; 
+            const actDev = parseFloat(t['TimeSheet_DevActualTime']) || 0;
             const actTest = parseFloat(t['TimeSheet_TestingActualTime']) || 0;
             const activity = t['Activity'];
 
             if (activity === 'DB Modification') {
                 dbOrig += orig;
-                dbActual += actDev; 
-                if (t['Assigned To']) dbNames.add(t['Assigned To']); 
+                dbActual += actDev;
+                if (t['Assigned To']) dbNames.add(t['Assigned To']);
             } else if (activity === 'Development') {
                 devOrig += orig;
                 devActual += actDev;
@@ -281,7 +279,7 @@ function calculateMetrics() {
         us.rework = {
             generic: { count: 0, actualTime: 0, severity: { critical: 0, high: 0, medium: 0, low: 0 } },
             specific: { count: 0, actualTime: 0, severity: { critical: 0, high: 0, medium: 0, low: 0 } },
-            severity: { critical: 0, high: 0, medium: 0, low: 0 }, 
+            severity: { critical: 0, high: 0, medium: 0, low: 0 },
             timeEstimation: 0,
             actualTime: 0,
             count: 0,
@@ -686,7 +684,7 @@ function renderIterationView() {
             </tr>`;
     }
 
-    html += `</tbody></table></div></div>`;
+    html += `</tbody>点心</div></div>`;
     container.innerHTML = html;
 }
 
@@ -799,6 +797,7 @@ function renderBusinessView() {
         </tr>
     </tbody>
 </table>
+
 
 
                     <h5 style="margin: 20px 0 10px 0; color: #2c3e50;">Tasks Timeline & Schedule:</h5>
@@ -1310,7 +1309,7 @@ function renderPeopleView() {
                         <td style="padding: 10px; text-align: center; font-weight: bold;">${totalWork.toFixed(1)}h</td>
                     </tr>`;
             });
-            tableHtml += `</tbody></table></div></div>`;
+            tableHtml += `</tbody>点心</div></div>`;
             return tableHtml;
         };
 
@@ -1367,7 +1366,7 @@ function renderNotTestedView() {
 
                     <h5 style="margin: 10px 0;">Tasks Timeline:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
-                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th>  </tr></thead>
+                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th>   </tr></thead>
                         <tbody>
                             ${sortedTasks.map(t => {
                                 const tsTotal = (parseFloat(t['TimeSheet_DevActualTime']) || 0) + (parseFloat(t['TimeSheet_TestingActualTime']) || 0);
@@ -1559,7 +1558,8 @@ async function fetchIterationSummary(config) {
                 uniqueResources: new Set(), bugSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
                 bugTypeCount: { generic: 0, specific: 0 },
                 devSet: new Set(), testerSet: new Set(), dbSet: new Set(),
-                devMeetingHours: 0, testerMeetingHours: 0, dbMeetingHours: 0 // for including meeting time in averages
+                devMeetingHours: 0, testerMeetingHours: 0, dbMeetingHours: 0, // for including meeting time in averages
+                devNames: [], testerNames: [], dbNames: []  // NEW: store names
             });
         }
         const ba = businessMap.get(area);
@@ -1594,9 +1594,18 @@ async function fetchIterationSummary(config) {
             const assignee = t['Assigned To'];
             const act = t['Activity'];
             if (assignee) {
-                if (act === 'Development') ba.devSet.add(assignee);
-                else if (act === 'Testing') ba.testerSet.add(assignee);
-                else if (act === 'DB Modification') ba.dbSet.add(assignee);
+                if (act === 'Development') {
+                    ba.devSet.add(assignee);
+                    if (!ba.devNames.includes(assignee)) ba.devNames.push(assignee);
+                }
+                else if (act === 'Testing') {
+                    ba.testerSet.add(assignee);
+                    if (!ba.testerNames.includes(assignee)) ba.testerNames.push(assignee);
+                }
+                else if (act === 'DB Modification') {
+                    ba.dbSet.add(assignee);
+                    if (!ba.dbNames.includes(assignee)) ba.dbNames.push(assignee);
+                }
             }
         });
         us.bugs.forEach(b => {
@@ -1604,6 +1613,7 @@ async function fetchIterationSummary(config) {
             if (assignee) {
                 ba.uniqueResources.add(assignee);
                 ba.devSet.add(assignee);
+                if (!ba.devNames.includes(assignee)) ba.devNames.push(assignee);
             }
         });
         us.reviews.forEach(r => {
@@ -1611,8 +1621,14 @@ async function fetchIterationSummary(config) {
             if (assignee) {
                 ba.uniqueResources.add(assignee);
                 const act = r['Activity'];
-                if (act === 'Development') ba.devSet.add(assignee);
-                else if (act === 'Testing') ba.testerSet.add(assignee);
+                if (act === 'Development') {
+                    ba.devSet.add(assignee);
+                    if (!ba.devNames.includes(assignee)) ba.devNames.push(assignee);
+                }
+                else if (act === 'Testing') {
+                    ba.testerSet.add(assignee);
+                    if (!ba.testerNames.includes(assignee)) ba.testerNames.push(assignee);
+                }
             }
         });
         
@@ -1694,6 +1710,18 @@ async function fetchIterationSummary(config) {
         ba.dbMeetingHours = dbMeetingTotal;
     }
     
+    // Collect overall names for the whole iteration (unique across all business areas)
+    let overallDevNames = [], overallTesterNames = [], overallDbNames = [];
+    for (let [area, ba] of businessMap.entries()) {
+        overallDevNames.push(...ba.devNames);
+        overallTesterNames.push(...ba.testerNames);
+        overallDbNames.push(...ba.dbNames);
+    }
+    // Remove duplicates
+    overallDevNames = [...new Set(overallDevNames)];
+    overallTesterNames = [...new Set(overallTesterNames)];
+    overallDbNames = [...new Set(overallDbNames)];
+    
     devCount = devSet.size;
     testerCount = testerSet.size;
     dbCount = dbSet.size;
@@ -1762,7 +1790,10 @@ async function fetchIterationSummary(config) {
             reworkRatio: parseFloat(baReworkRatio.toFixed(1)),
             devCount: ba.devSet.size,
             testerCount: ba.testerSet.size,
-            dbCount: ba.dbSet.size
+            dbCount: ba.dbSet.size,
+            devNames: ba.devNames,    // NEW
+            testerNames: ba.testerNames, // NEW
+            dbNames: ba.dbNames       // NEW
         });
     }
     
@@ -1793,6 +1824,9 @@ async function fetchIterationSummary(config) {
         devCount: devCount,
         testerCount: testerCount,
         dbCount: dbCount,
+        devNames: overallDevNames,   // NEW: array of developer names for this iteration (overall)
+        testerNames: overallTesterNames, // NEW
+        dbNames: overallDbNames,     // NEW
         businessMetrics: businessMetrics
     };
 }
@@ -1810,6 +1844,49 @@ function renderMultiLineChart(canvasId, labels, datasets, yLabel = '') {
             maintainAspectRatio: true,
             scales: {
                 y: { title: { display: !!yLabel, text: yLabel } }
+            }
+        }
+    });
+}
+
+// Helper chart functions with tooltips that show names
+function renderStackedBarChartWithNames(canvasId, labels, datasets, yLabel, namesData) {
+    // namesData is an object with keys: 'Developers', 'Testers', 'DB Specialists' each an array of arrays (per label)
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+    
+    window[canvasId + 'Chart'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: yLabel } } },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            let value = context.raw;
+                            let index = context.dataIndex;
+                            let namesList = [];
+                            if (label === 'Developers' && namesData.developers && namesData.developers[index]) {
+                                namesList = namesData.developers[index];
+                            } else if (label === 'Testers' && namesData.testers && namesData.testers[index]) {
+                                namesList = namesData.testers[index];
+                            } else if (label === 'DB Specialists' && namesData.db && namesData.db[index]) {
+                                namesList = namesData.db[index];
+                            }
+                            if (namesList && namesList.length) {
+                                return `${label}: ${value} (${namesList.join(', ')})`;
+                            } else {
+                                return `${label}: ${value}`;
+                            }
+                        }
+                    }
+                }
             }
         }
     });
@@ -1858,14 +1935,18 @@ function renderFilteredCharts(historicalData, selectedArea) {
         { label: 'DB Specialists + Meeting (avg hours)', data: dbWorkloadIncl, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad', borderDash: [5,5] }
     ], 'Hours per Resource');
     
+    // Resource distribution chart with names
     const devCounts = metricsByIteration.map(m => m.devCount || 0);
     const testerCounts = metricsByIteration.map(m => m.testerCount || 0);
     const dbCounts = metricsByIteration.map(m => m.dbCount || 0);
-    renderStackedBarChart('filteredResourceDistChart', labels, [
+    const devNamesList = metricsByIteration.map(m => m.devNames || []);
+    const testerNamesList = metricsByIteration.map(m => m.testerNames || []);
+    const dbNamesList = metricsByIteration.map(m => m.dbNames || []);
+    renderStackedBarChartWithNames('filteredResourceDistChart', labels, [
         { label: 'Developers', data: devCounts, backgroundColor: '#2c3e50' },
         { label: 'Testers', data: testerCounts, backgroundColor: '#27ae60' },
         { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
-    ], 'Headcount');
+    ], 'Headcount', { developers: devNamesList, testers: testerNamesList, db: dbNamesList });
     
     const severityCritical = metricsByIteration.map(m => m.bugSeverity?.critical || 0);
     const severityHigh = metricsByIteration.map(m => m.bugSeverity?.high || 0);
@@ -2138,15 +2219,18 @@ async function renderHistoricalAnalyticsView() {
         { label: 'DB Specialists + Meeting (avg hours)', data: dbWorkloadIncl, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad', borderDash: [5,5] }
     ], 'Hours per Resource');
 
-    // Resource distribution (stacked bar)
+    // Resource distribution chart with names (stacked bar with custom tooltip)
     const devCounts = historicalData.map(d => d.devCount || 0);
     const testerCounts = historicalData.map(d => d.testerCount || 0);
     const dbCounts = historicalData.map(d => d.dbCount || 0);
-    renderStackedBarChart('resourceDistChart', labels, [
+    const devNamesList = historicalData.map(d => d.devNames || []);
+    const testerNamesList = historicalData.map(d => d.testerNames || []);
+    const dbNamesList = historicalData.map(d => d.dbNames || []);
+    renderStackedBarChartWithNames('resourceDistChart', labels, [
         { label: 'Developers', data: devCounts, backgroundColor: '#2c3e50' },
         { label: 'Testers', data: testerCounts, backgroundColor: '#27ae60' },
         { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
-    ], 'Headcount');
+    ], 'Headcount', { developers: devNamesList, testers: testerNamesList, db: dbNamesList });
 
     // Bug severity distribution (stacked percentage)
     const severityCritical = historicalData.map(d => d.bugSeverity?.critical || 0);
@@ -2214,7 +2298,7 @@ async function renderHistoricalAnalyticsView() {
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-           </tr></thead><tbody>`;
+            </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
@@ -2228,7 +2312,7 @@ async function renderHistoricalAnalyticsView() {
             <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
            </tr>`;
     });
-    tableHtml += `</tbody></table>`;
+    tableHtml += `</tbody>点心</div>`;
     let existingTable = document.getElementById('historicalSummaryTable');
     if (!existingTable) {
         existingTable = document.createElement('div');
