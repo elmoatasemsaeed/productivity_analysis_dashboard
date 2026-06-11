@@ -1707,51 +1707,69 @@ async function syncAllIterationsData() {
 }
 
 async function uploadHistoricalSummary(summaries) {
-    if (!githubToken) return;
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
-    let sha = "";
-    let fileExists = false;
-
-    try {
-        const res = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
-            headers: { 'Authorization': `token ${githubToken}` }
-        });
-        if (res.status === 200) {
-            const data = await res.json();
-            sha = data.sha;
-            fileExists = true;
-        } else if (res.status === 404) {
-            fileExists = false; // الملف غير موجود، سننشئه
-        } else {
-            console.warn(`Unexpected status fetching historical_summary.json: ${res.status}`);
-        }
-    } catch (e) {
-        console.error("Error fetching file info:", e);
+    if (!githubToken) {
+        console.error("No GitHub token available");
+        return;
     }
-
+    
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(summaries, null, 2))));
+    const fileUrl = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`;
+    let sha = null;
+    
+    // 1. محاولة جلب الملف للحصول على sha إذا كان موجوداً
+    try {
+        const getRes = await fetch(fileUrl, {
+            headers: {
+                'Authorization': `token ${githubToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+        
+        if (getRes.status === 200) {
+            const data = await getRes.json();
+            sha = data.sha;
+            console.log("File exists, sha:", sha);
+        } else if (getRes.status === 404) {
+            console.log("File does not exist, will create new one");
+            sha = null; // لا نحتاج sha للملف الجديد
+        } else {
+            console.warn(`Unexpected status ${getRes.status} while fetching file info`);
+            throw new Error(`Failed to get file info: ${getRes.status}`);
+        }
+    } catch (err) {
+        console.error("Error checking existing file:", err);
+        throw err; // نوقف العملية إذا فشل جلب معلومات الملف
+    }
+    
+    // 2. بناء جسم الطلب
     const body = {
         message: "Update historical iteration summaries",
         content: content,
         branch: GH_CONFIG.branch
     };
-    if (fileExists) body.sha = sha; // نرسل sha فقط إذا الملف موجود
-
-    const response = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/historical_summary.json`, {
+    if (sha) {
+        body.sha = sha; // نضيف sha فقط إذا كان الملف موجوداً
+    }
+    
+    // 3. تنفيذ PUT
+    const putRes = await fetch(fileUrl, {
         method: 'PUT',
         headers: {
             'Authorization': `token ${githubToken}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json'
         },
         body: JSON.stringify(body)
     });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("GitHub PUT error:", response.status, errorText);
-        throw new Error(`Failed to upload: ${response.status} ${errorText}`);
+    
+    if (!putRes.ok) {
+        const errorText = await putRes.text();
+        console.error("GitHub PUT error:", putRes.status, errorText);
+        throw new Error(`Failed to upload: ${putRes.status} ${errorText}`);
     }
+    
+    console.log("Upload successful");
 }
-
 async function loadHistoricalSummary() {
     if (!githubToken) return null;
     try {
