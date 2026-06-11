@@ -739,7 +739,7 @@ function renderBusinessView() {
                         <b>Tester Lead:</b> ${us.testerLead} | 
                         <b style="color: #8e44ad;">DB Mod:</b> ${us.dbEffort.names}
                     </p>
-    <table>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
     <thead>
         <tr>
             <th>Type</th>
@@ -1179,7 +1179,7 @@ function renderPeopleView() {
                                     <th style="padding: 12px; text-align: center;">Spec. Bugs</th>
                                     <th style="padding: 12px; text-align: center;">Gen. Bugs</th>
                                     <th style="padding: 12px; text-align: center;">Total</th>
-                                 </tr>
+                                  </tr>
                             </thead>
                             <tbody>`;
             peopleList.forEach(p => {
@@ -1260,7 +1260,7 @@ function renderNotTestedView() {
 
                     <h5 style="margin: 10px 0;">Tasks Timeline:</h5>
                     <table style="font-size: 0.85em; width: 100%;">
-                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th> </tr></thead>
+                        <thead><tr style="background:#eee;"><th>ID</th><th>Task Name</th><th>Activity</th><th>Est</th><th>Exp. Start</th><th>Exp. End</th><th>Act. Start</th><th>TS Total</th><th>Delay</th>  </tr></thead>
                         <tbody>
                             ${sortedTasks.map(t => {
                                 const tsTotal = (parseFloat(t['TimeSheet_DevActualTime']) || 0) + (parseFloat(t['TimeSheet_TestingActualTime']) || 0);
@@ -1406,9 +1406,27 @@ async function fetchIterationSummary(config) {
         allItems.push(...detailsData.value);
     }
     const rawIterationData = allItems.map(item => mapAzureFields(item));
-    const stories = buildStoriesFromRawDataForHistory(rawIterationData);
+    
+    // Separate Meeting work items
+    const meetings = rawIterationData.filter(item => item['Work Item Type'] === 'Meeting');
+    const nonMeetingItems = rawIterationData.filter(item => item['Work Item Type'] !== 'Meeting');
+    
+    // Build meeting hours per person (sum of DevActual + TestingActual from Meeting items)
+    const meetingHoursByPerson = {};
+    meetings.forEach(meeting => {
+        const assignee = meeting['Assigned To'];
+        if (!assignee) return;
+        const devAct = parseFloat(meeting['TimeSheet_DevActualTime']) || 0;
+        const testAct = parseFloat(meeting['TimeSheet_TestingActualTime']) || 0;
+        const totalMeetingHrs = devAct + testAct;
+        if (totalMeetingHrs > 0) {
+            meetingHoursByPerson[assignee] = (meetingHoursByPerson[assignee] || 0) + totalMeetingHrs;
+        }
+    });
+    
+    const stories = buildStoriesFromRawDataForHistory(nonMeetingItems);
     calculateMetricsForStoriesForHistory(stories);
-
+    
     let totalStories = stories.length;
     let totalEst = 0, totalDevActual = 0, totalTestActual = 0, totalDbActual = 0, totalBugActual = 0;
     let totalCycleTime = 0, cycleCount = 0;
@@ -1420,7 +1438,11 @@ async function fetchIterationSummary(config) {
     let devCount = 0, testerCount = 0, dbCount = 0;
     const devSet = new Set(), testerSet = new Set(), dbSet = new Set();
     const businessMap = new Map();
-
+    
+    // Track meeting hours per resource for each business area (to include in averages later)
+    // We'll accumulate meeting hours per person per business area
+    const meetingHoursByPersonAndArea = new Map(); // key: area|person, value: hours
+    
     stories.forEach(us => {
         const area = us.businessArea || 'General';
         if (!businessMap.has(area)) {
@@ -1429,25 +1451,24 @@ async function fetchIterationSummary(config) {
                 totalCycleTime: 0, cycleCount: 0, totalInternalBugs: 0, totalUatBugs: 0, closedCount: 0,
                 uniqueResources: new Set(), bugSeverity: { critical: 0, high: 0, medium: 0, low: 0 },
                 bugTypeCount: { generic: 0, specific: 0 },
-                devSet: new Set(), testerSet: new Set(), dbSet: new Set()
+                devSet: new Set(), testerSet: new Set(), dbSet: new Set(),
+                devMeetingHours: 0, testerMeetingHours: 0, dbMeetingHours: 0 // for including meeting time in averages
             });
         }
         const ba = businessMap.get(area);
-
+        
         const est = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
-        // ساعات الأدوار الأساسية
         const devActCore = us.devEffort.actual;
         const testActCore = us.testEffort.actual;
         const dbActCore = us.dbEffort?.actual || 0;
         const bugAct = us.rework.actualTime;
         const reviewDevAct = us.reviewStats.devActual || 0;
         const reviewTestAct = us.reviewStats.testActual || 0;
-
-        // إجمالي عبء العمل للقصة شامل البجز والمراجعات
+        
         const totalDevForStory = devActCore + bugAct + reviewDevAct;
         const totalTestForStory = testActCore + reviewTestAct;
         const totalDbForStory = dbActCore;
-
+        
         ba.totalEst += est;
         ba.totalDevActual += totalDevForStory;
         ba.totalTestActual += totalTestForStory;
@@ -1458,7 +1479,7 @@ async function fetchIterationSummary(config) {
         ba.totalInternalBugs += us.rework.count;
         ba.totalUatBugs += us.rework.uatBugsCount;
         if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') ba.closedCount++;
-
+        
         if (us.devLead) ba.uniqueResources.add(us.devLead);
         if (us.testerLead) ba.uniqueResources.add(us.testerLead);
         us.tasks.forEach(t => {
@@ -1471,12 +1492,11 @@ async function fetchIterationSummary(config) {
                 else if (act === 'DB Modification') ba.dbSet.add(assignee);
             }
         });
-        // إضافة أسماء الموارد من البجز والمراجعات للمجموعات الصحيحة (لتكون الأدوار شاملة)
         us.bugs.forEach(b => {
             const assignee = b['Assigned To'];
             if (assignee) {
                 ba.uniqueResources.add(assignee);
-                ba.devSet.add(assignee);  // البجز عادة يصلحها مطور
+                ba.devSet.add(assignee);
             }
         });
         us.reviews.forEach(r => {
@@ -1488,15 +1508,15 @@ async function fetchIterationSummary(config) {
                 else if (act === 'Testing') ba.testerSet.add(assignee);
             }
         });
-
+        
         ba.bugSeverity.critical += us.rework.severity.critical;
         ba.bugSeverity.high += us.rework.severity.high;
         ba.bugSeverity.medium += us.rework.severity.medium;
         ba.bugSeverity.low += us.rework.severity.low;
         ba.bugTypeCount.generic += us.rework.generic.count;
         ba.bugTypeCount.specific += us.rework.specific.count;
-
-        // الإجماليات العامة
+        
+        // Aggregate totals for overall iteration
         totalEst += est;
         totalDevActual += totalDevForStory;
         totalTestActual += totalTestForStory;
@@ -1534,7 +1554,7 @@ async function fetchIterationSummary(config) {
                 else if (act === 'Testing') testerSet.add(assignee);
             }
         });
-
+        
         bugSeverity.critical += us.rework.severity.critical;
         bugSeverity.high += us.rework.severity.high;
         bugSeverity.medium += us.rework.severity.medium;
@@ -1542,11 +1562,35 @@ async function fetchIterationSummary(config) {
         bugTypeCount.generic += us.rework.generic.count;
         bugTypeCount.specific += us.rework.specific.count;
     });
-
+    
+    // Now assign meeting hours to business areas based on the persons' roles within that area
+    // For each person in each business area's role sets, we add meeting hours from meetingHoursByPerson (global, no area filter)
+    // But meetings are not area-specific in the data, so we assume meeting hours belong to the area where the person worked on stories.
+    // We'll allocate meeting hours to a business area if the person appears in that area's devSet, testerSet, or dbSet.
+    for (let [area, ba] of businessMap.entries()) {
+        let devMeetingTotal = 0, testerMeetingTotal = 0, dbMeetingTotal = 0;
+        // For each person in devSet, add their meeting hours
+        ba.devSet.forEach(person => {
+            const hrs = meetingHoursByPerson[person] || 0;
+            devMeetingTotal += hrs;
+        });
+        ba.testerSet.forEach(person => {
+            const hrs = meetingHoursByPerson[person] || 0;
+            testerMeetingTotal += hrs;
+        });
+        ba.dbSet.forEach(person => {
+            const hrs = meetingHoursByPerson[person] || 0;
+            dbMeetingTotal += hrs;
+        });
+        ba.devMeetingHours = devMeetingTotal;
+        ba.testerMeetingHours = testerMeetingTotal;
+        ba.dbMeetingHours = dbMeetingTotal;
+    }
+    
     devCount = devSet.size;
     testerCount = testerSet.size;
     dbCount = dbSet.size;
-
+    
     const avgCycleTime = cycleCount ? (totalCycleTime / cycleCount).toFixed(1) : 0;
     const effortVariance = totalEst ? ((totalDevActual + totalTestActual - totalEst) / totalEst) * 100 : 0;
     const totalBugs = totalInternalBugs + totalUatBugs;
@@ -1556,7 +1600,18 @@ async function fetchIterationSummary(config) {
     const avgDevHours = devCount ? totalDevActual / devCount : 0;
     const avgTestHours = testerCount ? totalTestActual / testerCount : 0;
     const avgDbHours = dbCount ? totalDbActual / dbCount : 0;
-
+    
+    // Compute meeting-inclusive averages for overall iteration
+    let totalDevMeetingHours = 0, totalTesterMeetingHours = 0, totalDbMeetingHours = 0;
+    for (let [area, ba] of businessMap.entries()) {
+        totalDevMeetingHours += ba.devMeetingHours || 0;
+        totalTesterMeetingHours += ba.testerMeetingHours || 0;
+        totalDbMeetingHours += ba.dbMeetingHours || 0;
+    }
+    const avgDevHoursInclMeetings = devCount ? (totalDevActual + totalDevMeetingHours) / devCount : 0;
+    const avgTestHoursInclMeetings = testerCount ? (totalTestActual + totalTesterMeetingHours) / testerCount : 0;
+    const avgDbHoursInclMeetings = dbCount ? (totalDbActual + totalDbMeetingHours) / dbCount : 0;
+    
     const businessMetrics = [];
     for (let [area, ba] of businessMap.entries()) {
         const baAvgCycle = ba.cycleCount ? (ba.totalCycleTime / ba.cycleCount).toFixed(1) : 0;
@@ -1568,7 +1623,12 @@ async function fetchIterationSummary(config) {
         const baAvgDevHours = ba.devSet.size ? ba.totalDevActual / ba.devSet.size : 0;
         const baAvgTestHours = ba.testerSet.size ? ba.totalTestActual / ba.testerSet.size : 0;
         const baAvgDbHours = ba.dbSet.size ? ba.totalDbActual / ba.dbSet.size : 0;
-
+        
+        // Meeting-inclusive averages for business area
+        const baAvgDevHoursIncl = ba.devSet.size ? (ba.totalDevActual + ba.devMeetingHours) / ba.devSet.size : 0;
+        const baAvgTestHoursIncl = ba.testerSet.size ? (ba.totalTestActual + ba.testerMeetingHours) / ba.testerSet.size : 0;
+        const baAvgDbHoursIncl = ba.dbSet.size ? (ba.totalDbActual + ba.dbMeetingHours) / ba.dbSet.size : 0;
+        
         businessMetrics.push({
             area: area,
             totalStories: ba.totalStories,
@@ -1587,6 +1647,9 @@ async function fetchIterationSummary(config) {
             avgDevHours: parseFloat(baAvgDevHours.toFixed(1)),
             avgTestHours: parseFloat(baAvgTestHours.toFixed(1)),
             avgDbHours: parseFloat(baAvgDbHours.toFixed(1)),
+            avgDevHoursInclMeetings: parseFloat(baAvgDevHoursIncl.toFixed(1)),
+            avgTestHoursInclMeetings: parseFloat(baAvgTestHoursIncl.toFixed(1)),
+            avgDbHoursInclMeetings: parseFloat(baAvgDbHoursIncl.toFixed(1)),
             bugSeverity: ba.bugSeverity,
             bugTypeCount: ba.bugTypeCount,
             reworkRatio: parseFloat(baReworkRatio.toFixed(1)),
@@ -1595,7 +1658,7 @@ async function fetchIterationSummary(config) {
             dbCount: ba.dbSet.size
         });
     }
-
+    
     return {
         iterationName: config.name,
         totalStories: totalStories,
@@ -1614,6 +1677,9 @@ async function fetchIterationSummary(config) {
         avgDevHours: parseFloat(avgDevHours.toFixed(1)),
         avgTestHours: parseFloat(avgTestHours.toFixed(1)),
         avgDbHours: parseFloat(avgDbHours.toFixed(1)),
+        avgDevHoursInclMeetings: parseFloat(avgDevHoursInclMeetings.toFixed(1)),
+        avgTestHoursInclMeetings: parseFloat(avgTestHoursInclMeetings.toFixed(1)),
+        avgDbHoursInclMeetings: parseFloat(avgDbHoursInclMeetings.toFixed(1)),
         bugSeverity: bugSeverity,
         bugTypeCount: bugTypeCount,
         reworkRatio: parseFloat(reworkRatio.toFixed(1)),
@@ -1668,17 +1734,23 @@ function renderFilteredCharts(historicalData, selectedArea) {
     const ctData = metricsByIteration.map(m => m.avgCycleTime);
     renderLineChart('filteredCtChart', labels, ctData, 'Cycle Time (days)', '#3498db', 'Days');
     
-    // Multi-line workload chart for business area (includes bugs & reviews)
-    const devWorkload = metricsByIteration.map(m => m.avgDevHours || 0);
-    const testWorkload = metricsByIteration.map(m => m.avgTestHours || 0);
-    const dbWorkload = metricsByIteration.map(m => m.avgDbHours || 0);
+    // Workload with Meeting dashed lines
+    const devWorkloadSolid = metricsByIteration.map(m => m.avgDevHours || 0);
+    const devWorkloadIncl = metricsByIteration.map(m => m.avgDevHoursInclMeetings || 0);
+    const testWorkloadSolid = metricsByIteration.map(m => m.avgTestHours || 0);
+    const testWorkloadIncl = metricsByIteration.map(m => m.avgTestHoursInclMeetings || 0);
+    const dbWorkloadSolid = metricsByIteration.map(m => m.avgDbHours || 0);
+    const dbWorkloadIncl = metricsByIteration.map(m => m.avgDbHoursInclMeetings || 0);
+    
     renderMultiLineChart('filteredAvgWorkloadChart', labels, [
-        { label: 'Developers (avg hours)', data: devWorkload, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
-        { label: 'Testers (avg hours)', data: testWorkload, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
-        { label: 'DB Specialists (avg hours)', data: dbWorkload, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' }
+        { label: 'Developers (avg hours)', data: devWorkloadSolid, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
+        { label: 'Developers + Meeting (avg hours)', data: devWorkloadIncl, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50', borderDash: [5,5] },
+        { label: 'Testers (avg hours)', data: testWorkloadSolid, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
+        { label: 'Testers + Meeting (avg hours)', data: testWorkloadIncl, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60', borderDash: [5,5] },
+        { label: 'DB Specialists (avg hours)', data: dbWorkloadSolid, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' },
+        { label: 'DB Specialists + Meeting (avg hours)', data: dbWorkloadIncl, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad', borderDash: [5,5] }
     ], 'Hours per Resource');
     
-    // Resource distribution (stacked bar)
     const devCounts = metricsByIteration.map(m => m.devCount || 0);
     const testerCounts = metricsByIteration.map(m => m.testerCount || 0);
     const dbCounts = metricsByIteration.map(m => m.dbCount || 0);
@@ -1688,7 +1760,6 @@ function renderFilteredCharts(historicalData, selectedArea) {
         { label: 'DB Specialists', data: dbCounts, backgroundColor: '#8e44ad' }
     ], 'Headcount');
     
-    // Bug severity
     const severityCritical = metricsByIteration.map(m => m.bugSeverity?.critical || 0);
     const severityHigh = metricsByIteration.map(m => m.bugSeverity?.high || 0);
     const severityMedium = metricsByIteration.map(m => m.bugSeverity?.medium || 0);
@@ -1700,7 +1771,6 @@ function renderFilteredCharts(historicalData, selectedArea) {
         { label: 'Low', data: severityLow, backgroundColor: '#2ecc71' }
     ], 'Bug Severity');
     
-    // Bug type
     const genericBugs = metricsByIteration.map(m => m.bugTypeCount?.generic || 0);
     const specificBugs = metricsByIteration.map(m => m.bugTypeCount?.specific || 0);
     renderStackedPercentageBar('filteredBugTypeChart', labels, [
@@ -1944,14 +2014,21 @@ async function renderHistoricalAnalyticsView() {
     renderLineChart('rwLineChart', labels, historicalData.map(d => d.reworkRatio), 'Rework Ratio %', '#e67e22', 'Rework %');
     renderLineChart('ctLineChart', labels, historicalData.map(d => d.avgCycleTime), 'Cycle Time (days)', '#3498db', 'Days');
 
-    // Multi-line workload chart (Dev, Tester, DB) - now includes bug & review hours
-    const devWorkload = historicalData.map(d => d.avgDevHours || 0);
-    const testWorkload = historicalData.map(d => d.avgTestHours || 0);
-    const dbWorkload = historicalData.map(d => d.avgDbHours || 0);
+    // Multi-line workload chart (Dev, Tester, DB) - now including meeting hours as dashed lines
+    const devWorkloadSolid = historicalData.map(d => d.avgDevHours || 0);
+    const devWorkloadIncl = historicalData.map(d => d.avgDevHoursInclMeetings || 0);
+    const testWorkloadSolid = historicalData.map(d => d.avgTestHours || 0);
+    const testWorkloadIncl = historicalData.map(d => d.avgTestHoursInclMeetings || 0);
+    const dbWorkloadSolid = historicalData.map(d => d.avgDbHours || 0);
+    const dbWorkloadIncl = historicalData.map(d => d.avgDbHoursInclMeetings || 0);
+    
     renderMultiLineChart('avgWorkloadLineChart', labels, [
-        { label: 'Developers (avg hours)', data: devWorkload, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
-        { label: 'Testers (avg hours)', data: testWorkload, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
-        { label: 'DB Specialists (avg hours)', data: dbWorkload, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' }
+        { label: 'Developers (avg hours)', data: devWorkloadSolid, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50' },
+        { label: 'Developers + Meeting (avg hours)', data: devWorkloadIncl, borderColor: '#2c3e50', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#2c3e50', borderDash: [5,5] },
+        { label: 'Testers (avg hours)', data: testWorkloadSolid, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60' },
+        { label: 'Testers + Meeting (avg hours)', data: testWorkloadIncl, borderColor: '#27ae60', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#27ae60', borderDash: [5,5] },
+        { label: 'DB Specialists (avg hours)', data: dbWorkloadSolid, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad' },
+        { label: 'DB Specialists + Meeting (avg hours)', data: dbWorkloadIncl, borderColor: '#8e44ad', backgroundColor: 'transparent', tension: 0.3, fill: false, pointBackgroundColor: '#8e44ad', borderDash: [5,5] }
     ], 'Hours per Resource');
 
     // Resource distribution (stacked bar)
@@ -2030,7 +2107,7 @@ async function renderHistoricalAnalyticsView() {
     let tableHtml = `<table style="width:100%; border-collapse:collapse; background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
         <thead><tr style="background:#2c3e50; color:white;">
             <th style="padding:12px;">Iteration</th><th>Completed Stories</th><th>Avg Cycle (days)</th><th>Effort Var %</th><th>DRE %</th><th>Rework %</th><th>Dev Hrs</th><th>Test Hrs</th><th>Unique Resources</th>
-          </tr></thead><tbody>`;
+           </tr></thead><tbody>`;
     historicalData.forEach(d => {
         tableHtml += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;">${d.iterationName}</td>
@@ -2042,7 +2119,7 @@ async function renderHistoricalAnalyticsView() {
             <td style="text-align:center;">${d.totalDevActual || 0}</td>
             <td style="text-align:center;">${d.totalTestActual || 0}</td>
             <td style="text-align:center;">${d.uniqueResourcesCount || 0}</td>
-          </tr>`;
+           </tr>`;
     });
     tableHtml += `</tbody></table>`;
     let existingTable = document.getElementById('historicalSummaryTable');
