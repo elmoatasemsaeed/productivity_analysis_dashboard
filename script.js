@@ -1427,7 +1427,7 @@ Consider performing a focused review of this module to identify systemic weaknes
                     🧠 Defect Analyses
                 </h4>
                 <ul style="margin:0; padding-left:20px; font-size:0.92em; color:#2c3e50; line-height:1.6;">
-                    ${generateAdvancedQualityAnalysis(stats)}
+                    ${generateAdvancedQualityAnalysis(area, grouped[area])}
                 </ul>
             </div>
 
