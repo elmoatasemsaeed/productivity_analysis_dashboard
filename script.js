@@ -1030,6 +1030,11 @@ function renderTeamView() {
 // Input: array of User Story objects (each with .bugs, .reviews, .tasks, etc.)
 // Output: HTML string of <li> insights
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Advanced Quality Analysis Function (replaces generateAdvancedQualityAnalysis)
+// Input: array of User Story objects (each with .bugs, .reviews, .tasks, etc.)
+// Output: HTML string of <li> insights
+// -----------------------------------------------------------------------------
 function generateAdvancedQualityAnalysisFromStories(stories) {
     // --- Data aggregation from the stories array ---
     let allBugs = [];
@@ -1080,7 +1085,7 @@ function generateAdvancedQualityAnalysisFromStories(stories) {
             // Bug Type classification (UAT vs Iteration)
             const bugType = (b['BugType'] || "").trim().toUpperCase();
             if (bugType === 'UAT') uatBugs.push(b);
-            else if (bugType === 'ITERATION') iterationBugs.push(b);
+            else if (bugType === 'ITERATION' || bugType === '') iterationBugs.push(b);
         });
 
         // Process reviews
@@ -1169,8 +1174,6 @@ function generateAdvancedQualityAnalysisFromStories(stories) {
 
     // 5. Test Cases Gaps vs Execution (using UAT and Iteration bugs)
     if (uatBugs.length > 0 || iterationBugs.length > 0) {
-        // Simple heuristic: classify as gap if title contains "missing", "not covered", "scenario", "case", "test"
-        // or as execution error if contains "execution", "incorrect", "wrong", "fail", "error"
         let gapCount = 0, execCount = 0;
         const allTestBugs = [...uatBugs, ...iterationBugs];
         allTestBugs.forEach(b => {
@@ -1182,7 +1185,6 @@ function generateAdvancedQualityAnalysisFromStories(stories) {
                        title.includes("fail") || title.includes("error")) {
                 execCount++;
             } else {
-                // fallback: if bug type is UAT, treat as gap, else execution
                 if ((b['BugType'] || "").trim().toUpperCase() === 'UAT') gapCount++;
                 else execCount++;
             }
@@ -1215,7 +1217,6 @@ function generateAdvancedQualityAnalysisFromStories(stories) {
     }
     return insights.join('');
 }
-
 // -----------------------------------------------------------------------------
 // MODIFIED renderTeamView: replaced the call to generateAdvancedQualityAnalysis
 // with the new function, passing the actual stories array for the business area.
