@@ -1026,337 +1026,106 @@ function renderTeamView() {
         };
 
         function generateAdvancedQualityAnalysis(s) {
+            let insights = [];
+            
+            const totalIssues = s.bugsCount + s.reviewCount;
+            const reviewCatchRate = totalIssues > 0 ? (s.reviewCount / totalIssues) * 100 : 0;
+            const highSevBugs = s.bugsCrit + s.bugsHigh;
+            const highSevReviews = s.revCrit + s.revHigh;
+            const avgTimePerBug = s.bugsCount > 0 ? (s.reworkTime / s.bugsCount) : 0;
+            
+            const effortVariance = s.totalEst > 0 ? ((s.totalAct - s.totalEst) / s.totalEst) * 100 : 0;
+            const combinedReworkRatio = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
+            const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
+            
+            const totalAllBugsLocal = s.bugsCount + (s.totalUatBugs || 0);
+            const calculatedDre = totalAllBugsLocal > 0 ? (s.bugsCount / totalAllBugsLocal) * 100 : 100;
 
-    const insights = [];
+            const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
+            const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
+            const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
 
-    //--------------------------------------------------
-    // Collect Raw Bugs
-    //--------------------------------------------------
+            if (reviewCatchRate > 40) {
+                insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal testing execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
+            } else if (reviewCatchRate > 15) {
+                insights.push(`<li><b>Shift-Left Progression:</b> Peer Reviews managed to catch <span style="color:#3498db; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of product defects. There is room to further strengthen code reviews to optimize the quality pipeline.</li>`);
+            } else {
+                insights.push(`<li><b>Shift-Left Risk Warning:</b> Peer Reviews intercepted only <span style="color:#e74c3c; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total anomalies. The majority of issues were pushed directly into formal testing, increasing downstream pressure on Testing. Immediately reinforce code-review policies.</li>`);
+            }
 
-    const bugs = stories.flatMap(s =>
-        (s.bugs || []).map(b => ({
-            ...b,
-            storyId: s.id,
-            storyTitle: s.title
-        }))
-    );
+            if (effortVariance > 15 && combinedReworkRatio > 15) {
+                insights.push(`<li><b>⚠️ Rework-Driven Slippage:</b> Both Effort Variance (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and Rework Ratio (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>) have breached control limits. This statistical correlation proves that iteration slippage is driven by heavy code stabilization and bug-fixing overhead rather than scoping changes.</li>`);
+            } else if (effortVariance > 15 && combinedReworkRatio <= 15) {
+                insights.push(`<li><b>🔍 Estimation Model Baseline Flaw:</b> Effort Variance is high (<span style="color:#e67e22; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) but Rework/Review metrics remain healthy (<span style="color:#27ae60; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This diagnostic signals that the baseline estimation models or story grooming breakdowns are flawed, as pure engineering hours exceeded estimates without quality friction.</li>`);
+            } else if (effortVariance <= 0 && combinedReworkRatio > 20) {
+                insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
+            }
 
-    if (!bugs.length)
-        return `<li style="color:#27ae60">
-        No defects were detected for this Business Area.
-        </li>`;
+            if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
+                insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${calculatedDre.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
+            } else if (calculatedDre >= 85 && s.bugsCount > 0) {
+                insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${calculatedDre.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
+            }
 
+            if (s.bugsCount > 0) {
+                if (bugSeverityRatio > 30) {
+                    insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
+                    if (highSevReviews === 0) {
+                        insights.push(`<li><b>🔎 Review Blind Spot Diagnosis:</b> While testing detected <span style="color:#e74c3c; font-weight:bold;">${highSevBugs} High/Critical bugs</span>, Peer Reviews intercepted <span style="color:#747d8c; font-weight:bold;">0</span>. Peer audits are entirely blind to core architecture, integration constraints, or deep database schemas, acting only as superficial code format checks.</li>`);
+                    }
+                } else {
+                    insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
+                }
+            }
 
+            if (avgTimePerBug > 4 && s.bugsCount > 0) {
+                insights.push(`<li><b>Rework Friction:</b> Mean Time to Resolve (MTTR) a formal bug is high (<span style="color:#e67e22; font-weight:bold;">${avgTimePerBug.toFixed(1)}h/bug</span>). This signals deep structural dependencies or tracking overhead in logging timesheets.</li>`);
+                if (avgCycleTime > 5) {
+                    insights.push(`<li><b>⏳ Blocked Cycle Time Correlation:</b> The prolonged user story cycle time (<span style="color:#8e44ad; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) is statistically linked to the resolution complexity of bugs (${avgTimePerBug.toFixed(1)}h). User stories are stalling in the "Testing/Rework" phase for multiple days due to resolution drag.</li>`);
+                }
+            }
 
-    //--------------------------------------------------
-    // Generic vs Specific
-    //--------------------------------------------------
+            if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
+                insights.push(`<li><b>🛡️ High-Fidelity Pre-Emptive Review:</b> Peer reviews are filtering architectural flaws early (High-Sev Review: <span style="color:#27ae60; font-weight:bold;">${reviewSeverityRatio.toFixed(1)}%</span>) resulting in a highly clean and stable build deployed to testing (High-Sev Testing Bugs: <span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). This validates high engineering discipline.</li>`);
+            }
 
-    const generic =
-        bugs.filter(x =>
-            (x.GenericBug || "").toLowerCase() === "yes"
-        );
+            if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
+                insights.push(`<li><b>🚨 Superficial Peer-Review Pattern:</b> High volume of Peer Reviews (<span style="color:#8e44ad; font-weight:bold;">${s.reviewCount}</span>) detected zero high-severity issues, yet testing faced critical/high bottlenecks (<span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). Code sign-offs are purely process-driven/administrative without technical validation depth.</li>`);
+            }
 
-    const specific =
-        bugs.filter(x =>
-            (x.GenericBug || "").toLowerCase() !== "yes"
-        );
+            if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
+                insights.push(`<li><b>🕵️ Hidden Rework & Timesheet Inaccuracy:</b> Significant effort variance found (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) with artificially low logged rework/review time (<span style="color:#e67e22; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Team members are likely fixing bugs and refactoring code implicitly under normal development hours without proper activity logging.</li>`);
+            }
 
-    if (generic.length > specific.length){
+            if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
+                insights.push(`<li><b>🏗️ Severe Architectural Coupling:</b> Low defect density (Only <span style="color:#3498db; font-weight:bold;">${s.bugsCount} bugs</span>) but extreme MTTR (<span style="color:#e74c3c; font-weight:bold;">${avgTimePerBug.toFixed(1)} hours/bug</span>). The system suffers from high coupling or fragile dependencies; changing minor code paths requires massive code tracing and extensive debugging effort.</li>`);
+            }
 
-        insights.push(`
-<li style="color:#d63031">
-<b>Generic Defects Dominance:</b>
-${generic.length}/${bugs.length} defects are Generic.
-This pattern suggests high coupling with legacy components and elevated regression risk.
-Immediate Regression Testing is recommended before deployment.
-</li>`);
+            if (uatLeakageRatio > 25 && s.bugsCount > 0) {
+                insights.push(`<li><b>💥 Severe Quality Gate Escape:</b> Out of total Defects, UAT Leakages reached <span style="color:#e74c3c; font-weight:bold;">${uatLeakageRatio.toFixed(1)}%</span>. Internal quality gates are misaligned with business integration logic or the staging environment lacks proper test-data combinations found in user-acceptance tracks.</li>`);
+            }
 
-    }
-    else{
+            if (s.dbCountCount > 0 && avgCycleTime > 6 && bugSeverityRatio > 35) {
+                insights.push(`<li><b>🗄️ Database Coupling Friction:</b> Data tier modifications (FTE: <span style="color:#8e44ad; font-weight:bold;">${s.dbCountCount.toFixed(2)}</span>) are heavily correlating with an extended cycle time (<span style="color:#e67e22; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) and high bug severity. Changes in tables/schemas are causing breaking impacts across application blocks. Require stricter DB design reviews.</li>`);
+            }
 
-        insights.push(`
-<li style="color:#f39c12">
-<b>Specific Defects Dominance:</b>
-Most defects are isolated within newly implemented User Stories,
-indicating requirement misunderstanding or insufficient Story Grooming.
-</li>`);
+            if (s.devCountCount > 0 && s.testerCountCount > 0) {
+                const devToTesterRatio = s.devCountCount / s.testerCountCount;
+                if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
+                    insights.push(`<li><b>⚖️ Resource Skew & Test Bottleneck:</b> Asymmetric Dev-to-Tester Capacity ratio (<span style="color:#e67e22; font-weight:bold;">${devToTesterRatio.toFixed(1)}:1</span>) matched with UAT leakages. Testing capacity is diluted under a flood of incoming dev code updates, leading to shallow operational verification passes.</li>`);
+                }
+            }
 
-    }
+            if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && calculatedDre >= 90) {
+                insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
+            }
 
-
-
-    //--------------------------------------------------
-    // Pareto Story
-    //--------------------------------------------------
-
-    const storyCounter = {};
-
-    bugs.forEach(b=>{
-
-        storyCounter[b.storyId] ??= {
-            count:0,
-            critical:0
-        };
-
-        storyCounter[b.storyId].count++;
-
-        if(
-            (b.Severity||"").toLowerCase().includes("critical") ||
-            (b.Severity||"").toLowerCase().includes("high")
-        ){
-            storyCounter[b.storyId].critical++;
+            if (insights.length === 0) {
+                return "<li><b>✅ Balanced Quality Lifecycle:</b> No critical dynamic anomalies observed for this iteration. All performance, effort variances, and quality gating structures reside safely within engineering control thresholds.</li>";
+            }
+            
+            return insights.join('');
         }
-
-    });
-
-    Object.entries(storyCounter)
-    .forEach(([id,v])=>{
-
-        if(v.count>3){
-
-            insights.push(`
-<li style="color:#d63031">
-<b>Defect Clustering:</b>
-User Story <b>${id}</b> accumulated
-<b>${v.count}</b> defects.
-This is a High Complexity Area and should be decomposed into smaller stories.
-</li>`);
-
-        }
-
-    });
-
-
-
-    //--------------------------------------------------
-    // Developer Pareto
-    //--------------------------------------------------
-
-    const devCounter={};
-
-    bugs.forEach(b=>{
-
-        const dev=b["Assigned To"] || "Unknown";
-
-        devCounter[dev]=(devCounter[dev]||0)+1;
-
-    });
-
-    Object.entries(devCounter).forEach(([dev,count])=>{
-
-        if(count/bugs.length>=0.5){
-
-            insights.push(`
-<li style="color:#e67e22">
-<b>Developer Defect Concentration:</b>
-${dev} is associated with ${count} out of ${bugs.length} defects.
-This indicates a potential Single Point of Failure or workload imbalance.
-Consider Pair Programming or Mentorship instead of individual dependency.
-</li>`);
-
-        }
-
-    });
-
-
-
-    //--------------------------------------------------
-    // Architectural Risk
-    //--------------------------------------------------
-
-    Object.entries(storyCounter).forEach(([id,v])=>{
-
-        if(v.count>=4 && v.critical>=2){
-
-            insights.push(`
-<li style="color:#d63031">
-<b>Architectural Risk Zone:</b>
-Story <b>${id}</b>
-contains both a high defect density and multiple High/Critical defects.
-A design review is recommended rather than isolated bug fixing.
-</li>`);
-
-        }
-
-    });
-
-
-
-    //--------------------------------------------------
-    // Peer Review Typology
-    //--------------------------------------------------
-
-    const reviewBugs=
-        bugs.filter(b=>
-            (b["Bug Type"]||"")
-            .toLowerCase()
-            .includes("peer")
-        );
-
-    if(reviewBugs.length){
-
-        let coding=0;
-        let logic=0;
-
-        reviewBugs.forEach(b=>{
-
-            const t=(b["Title"]+" "+b["Bug Type"]).toLowerCase();
-
-            if(
-                t.includes("coding")||
-                t.includes("naming")||
-                t.includes("standard")
-            )
-                coding++;
-
-            if(
-                t.includes("logic")||
-                t.includes("business")
-            )
-                logic++;
-
-        });
-
-        if(coding>logic){
-
-            insights.push(`
-<li style="color:#f39c12">
-<b>Peer Review Observation:</b>
-Most review findings relate to Coding Standards.
-This indicates low-value manual reviews.
-Automating these checks using Linters and Static Analysis is recommended.
-</li>`);
-
-        }
-        else if(logic>coding){
-
-            insights.push(`
-<li style="color:#27ae60">
-<b>Peer Review Effectiveness:</b>
-Most review findings are Business Logic related,
-indicating mature Shift-Left engineering practices.
-</li>`);
-
-        }
-
-    }
-
-
-
-    //--------------------------------------------------
-    // Testing Gap
-    //--------------------------------------------------
-
-    let weakTC=0;
-    let execution=0;
-
-    bugs.forEach(b=>{
-
-        const txt=(b.Title+" "+b["Bug Type"]).toLowerCase();
-
-        if(
-            txt.includes("missing")||
-            txt.includes("coverage")||
-            txt.includes("test case")||
-            txt.includes("scenario")
-        )
-            weakTC++;
-
-        if(
-            txt.includes("execution")||
-            txt.includes("executed")||
-            txt.includes("manual mistake")
-        )
-            execution++;
-
-    });
-
-    if(weakTC>execution){
-
-        insights.push(`
-<li style="color:#e67e22">
-<b>Testing Gap:</b>
-Most Testing/UAT defects indicate insufficient Test Case coverage.
-Expand boundary conditions and negative scenarios.
-</li>`);
-
-    }
-    else if(execution>weakTC){
-
-        insights.push(`
-<li style="color:#27ae60">
-<b>Testing Observation:</b>
-Most failures appear to stem from execution inconsistencies rather than missing test cases.
-Focus on execution discipline and review practices.
-</li>`);
-
-    }
-
-
-
-    //--------------------------------------------------
-    // Keyword Mining
-    //--------------------------------------------------
-
-    const ignore=[
-        "the","and","for","with","bug","error","issue",
-        "fix","failed","fail","new","old","from","into",
-        "null","check","when","after","before","user"
-    ];
-
-    const freq={};
-
-    bugs.forEach(b=>{
-
-        b.Title
-            .toLowerCase()
-            .replace(/[^\w\s]/g,"")
-            .split(/\s+/)
-            .forEach(w=>{
-
-                if(w.length<4) return;
-                if(ignore.includes(w)) return;
-
-                freq[w]=(freq[w]||0)+1;
-
-            });
-
-    });
-
-    let topWord=null;
-    let topCount=0;
-
-    Object.entries(freq).forEach(([k,v])=>{
-
-        if(v>topCount){
-
-            topWord=k;
-            topCount=v;
-
-        }
-
-    });
-
-    if(topCount>=3){
-
-        insights.push(`
-<li style="color:#2980b9">
-<b>Keyword Mining:</b>
-Recurring defects are associated with the keyword
-<b>${topWord}</b>.
-Consider performing a focused review of this module to identify systemic weaknesses.
-</li>`);
-
-    }
-
-
-
-    //--------------------------------------------------
-
-    return insights.join("");
-
-}
 
         html += `
         <div class="card" style="background:#ffffff; border-radius:12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding:25px; margin-bottom:35px; border-top: 4px solid #2ccc71;">
@@ -1427,7 +1196,7 @@ Consider performing a focused review of this module to identify systemic weaknes
                     🧠 Defect Analyses
                 </h4>
                 <ul style="margin:0; padding-left:20px; font-size:0.92em; color:#2c3e50; line-height:1.6;">
-                    ${generateAdvancedQualityAnalysis(area, grouped[area])}
+                    ${generateAdvancedQualityAnalysis(stats)}
                 </ul>
             </div>
 
