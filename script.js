@@ -1025,247 +1025,303 @@ function renderTeamView() {
              </div>`;
         };
 
-        // -----------------------------------------------------------------------------
-// NEW: Advanced Quality Analysis Function (replaces generateAdvancedQualityAnalysis)
-// Input: array of User Story objects (each with .bugs, .reviews, .tasks, etc.)
-// Output: HTML string of <li> insights
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// Advanced Quality Analysis Function (replaces generateAdvancedQualityAnalysis)
-// Input: array of User Story objects (each with .bugs, .reviews, .tasks, etc.)
-// Output: HTML string of <li> insights
-// -----------------------------------------------------------------------------
-function generateAdvancedQualityAnalysisFromStories(stories) {
-    // --- Data aggregation from the stories array ---
-    let allBugs = [];
-    let allReviews = [];
-    let storyBugCounts = {};                 // storyId -> number of bugs
-    let developerBugCounts = {};             // developer name -> number of bugs assigned
-    let storySeverityCounts = {};            // storyId -> { critical, high, medium, low }
-    let genericCount = 0, specificCount = 0; // Generic vs Specific bugs
-    let reviewTypology = { codingStandards: 0, businessLogic: 0, other: 0 };
-    let uatBugs = [];
-    let iterationBugs = [];
-    let keywordFrequency = {};               // word -> count (from bug/review titles)
+        function generateAdvancedQualityAnalysis(s) {
+            let insights = [];
+            
+            const totalIssues = s.bugsCount + s.reviewCount;
+            const reviewCatchRate = totalIssues > 0 ? (s.reviewCount / totalIssues) * 100 : 0;
+            const highSevBugs = s.bugsCrit + s.bugsHigh;
+            const highSevReviews = s.revCrit + s.revHigh;
+            const avgTimePerBug = s.bugsCount > 0 ? (s.reworkTime / s.bugsCount) : 0;
+            
+            const effortVariance = s.totalEst > 0 ? ((s.totalAct - s.totalEst) / s.totalEst) * 100 : 0;
+            const combinedReworkRatio = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
+            const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
+            
+            const totalAllBugsLocal = s.bugsCount + (s.totalUatBugs || 0);
+            const calculatedDre = totalAllBugsLocal > 0 ? (s.bugsCount / totalAllBugsLocal) * 100 : 100;
 
-    stories.forEach(us => {
-        // Process bugs
-        us.bugs.forEach(b => {
-            allBugs.push(b);
+            const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
+            const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
+            const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
 
-            const isGeneric = (b['GenericBug'] || "").trim().toLowerCase() === 'yes';
-            isGeneric ? genericCount++ : specificCount++;
-
-            const storyId = us.id;
-            storyBugCounts[storyId] = (storyBugCounts[storyId] || 0) + 1;
-
-            const assigned = b['Assigned To'];
-            if (assigned) {
-                developerBugCounts[assigned] = (developerBugCounts[assigned] || 0) + 1;
-            }
-
-            // Severity per story
-            if (!storySeverityCounts[storyId]) {
-                storySeverityCounts[storyId] = { critical: 0, high: 0, medium: 0, low: 0 };
-            }
-            const sev = b['Severity'] || "";
-            if (sev.includes("1 - Critical")) storySeverityCounts[storyId].critical++;
-            else if (sev.includes("2 - High")) storySeverityCounts[storyId].high++;
-            else if (sev.includes("3 - Medium")) storySeverityCounts[storyId].medium++;
-            else if (sev.includes("4 - Low")) storySeverityCounts[storyId].low++;
-
-            // Keyword mining (extract meaningful words from title)
-            const title = b['Title'] || "";
-            const words = title.split(/\s+/).filter(w => w.length > 3);
-            words.forEach(w => {
-                const key = w.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (key) keywordFrequency[key] = (keywordFrequency[key] || 0) + 1;
-            });
-
-            // Bug Type classification (UAT vs Iteration)
-            const bugType = (b['BugType'] || "").trim().toUpperCase();
-            if (bugType === 'UAT') uatBugs.push(b);
-            else if (bugType === 'ITERATION' || bugType === '') iterationBugs.push(b);
-        });
-
-        // Process reviews
-        us.reviews.forEach(r => {
-            allReviews.push(r);
-            // Heuristic: classify review by severity and title keywords
-            const sev = r['Severity'] || "";
-            const title = (r['Title'] || "").toLowerCase();
-            if (sev.includes("4 - Low") && 
-                (title.includes("code") || title.includes("standard") || 
-                 title.includes("naming") || title.includes("format") || 
-                 title.includes("style"))) {
-                reviewTypology.codingStandards++;
-            } else if (sev.includes("1 - Critical") || sev.includes("2 - High") ||
-                       title.includes("logic") || title.includes("requirement") || 
-                       title.includes("business")) {
-                reviewTypology.businessLogic++;
+            if (reviewCatchRate > 40) {
+                insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal testing execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
+            } else if (reviewCatchRate > 15) {
+                insights.push(`<li><b>Shift-Left Progression:</b> Peer Reviews managed to catch <span style="color:#3498db; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of product defects. There is room to further strengthen code reviews to optimize the quality pipeline.</li>`);
             } else {
-                reviewTypology.other++;
+                insights.push(`<li><b>Shift-Left Risk Warning:</b> Peer Reviews intercepted only <span style="color:#e74c3c; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total anomalies. The majority of issues were pushed directly into formal testing, increasing downstream pressure on Testing. Immediately reinforce code-review policies.</li>`);
             }
 
-            // Keyword mining for reviews
-            const words = (r['Title'] || "").split(/\s+/).filter(w => w.length > 3);
-            words.forEach(w => {
-                const key = w.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (key) keywordFrequency[key] = (keywordFrequency[key] || 0) + 1;
-            });
-        });
-    });
-
-    const totalBugs = allBugs.length;
-    const totalReviews = allReviews.length;
-    const totalIssues = totalBugs + totalReviews;
-
-    // --- Insight generation ---
-    let insights = [];
-
-    // 1. Generic vs Specific Bugs Ratio
-    if (totalBugs > 0) {
-        const genericRatio = (genericCount / totalBugs) * 100;
-        if (genericRatio > 60) {
-            insights.push(`<li><b>⚠️ High Generic Bug Ratio (${genericRatio.toFixed(1)}%):</b> The majority of bugs are marked as <span style="color:#e74c3c; font-weight:bold;">Generic</span>. This indicates high coupling or impact on legacy code areas. <span style="color:#e67e22;">Immediate action: Execute broad regression testing and consider refactoring the affected modules.</span></li>`);
-        } else if (genericRatio < 40 && specificCount > 0) {
-            insights.push(`<li><b>✅ Specific Bugs Dominance (${(specificCount/totalBugs*100).toFixed(1)}%):</b> Most bugs are specific to the new development, suggesting the team is dealing with new requirements but may need to improve story grooming or technical design reviews.</li>`);
-        }
-    }
-
-    // 2. Defect Clustering (Pareto 80/20)
-    // a) Stories with >3 bugs
-    const storyEntries = Object.entries(storyBugCounts);
-    const highBugStories = storyEntries.filter(([id, count]) => count > 3);
-    if (highBugStories.length > 0) {
-        const storyIds = highBugStories.map(([id, count]) => `${id} (${count} bugs)`).join(', ');
-        insights.push(`<li><b>📌 Defect Clustering on Stories:</b> The following stories have more than 3 bugs each: <span style="color:#e74c3c; font-weight:bold;">${storyIds}</span>. These are likely <span style="color:#e67e22;">High Complexity Areas</span> that were not well decomposed; consider splitting them further in future iterations.</li>`);
-    }
-
-    // b) Developer concentration (>50% of bugs)
-    const devEntries = Object.entries(developerBugCounts);
-    const totalBugsAssigned = devEntries.reduce((sum, [_, cnt]) => sum + cnt, 0);
-    const highBugDevs = devEntries.filter(([dev, cnt]) => (cnt / totalBugsAssigned) * 100 > 50);
-    if (highBugDevs.length > 0 && totalBugsAssigned > 0) {
-        const devNames = highBugDevs.map(([dev, cnt]) => `${dev} (${cnt} bugs, ${((cnt/totalBugsAssigned)*100).toFixed(1)}%)`).join(', ');
-        insights.push(`<li><b>👤 Developer Defect Concentration:</b> More than 50% of bugs are assigned to: <span style="color:#e67e22; font-weight:bold;">${devNames}</span>. This may indicate a <span style="color:#e74c3c;">Single Point of Failure</span> or workload imbalance. Consider pair programming, code reviews, or knowledge transfer to distribute expertise.</li>`);
-    }
-
-    // 3. Severity Concentration per Story
-    const highSeverityStories = Object.entries(storySeverityCounts)
-        .filter(([id, sev]) => (sev.critical + sev.high) > 2);
-    if (highSeverityStories.length > 0) {
-        const storyIds = highSeverityStories.map(([id, sev]) => `${id} (C:${sev.critical}, H:${sev.high})`).join(', ');
-        insights.push(`<li><b>🔥 Architectural Risk Zone:</b> Stories with high concentration of Critical/High severity bugs: <span style="color:#e74c3c; font-weight:bold;">${storyIds}</span>. These stories require a design review and possibly a technical spike to address root architectural issues.</li>`);
-    }
-
-    // 4. Review Typology (coding standards vs business logic)
-    if (totalReviews > 0) {
-        const codingRatio = (reviewTypology.codingStandards / totalReviews) * 100;
-        const bizRatio = (reviewTypology.businessLogic / totalReviews) * 100;
-        if (codingRatio > 70) {
-            insights.push(`<li><b>📝 Peer Review Focus on Coding Standards (${codingRatio.toFixed(1)}%):</b> The majority of review findings are about coding style, naming, and formatting. Consider automating these checks with linters to free up reviewers for deeper issues. The review process may be overly bureaucratic.</li>`);
-        } else if (bizRatio > 50) {
-            insights.push(`<li><b>🧠 Deep Technical Reviews (${bizRatio.toFixed(1)}% Business Logic):</b> Peer reviews are catching business logic and architectural issues early. This is a <span style="color:#27ae60; font-weight:bold;">strong Shift-Left</span> practice that significantly improves quality.</li>`);
-        } else {
-            insights.push(`<li><b>🔍 Mixed Review Findings:</b> Reviews cover a mix of standards and logic. Ensure that the team is not just focusing on superficial aspects but also validating functional correctness.</li>`);
-        }
-    }
-
-    // 5. Test Cases Gaps vs Execution (using UAT and Iteration bugs)
-    if (uatBugs.length > 0 || iterationBugs.length > 0) {
-        let gapCount = 0, execCount = 0;
-        const allTestBugs = [...uatBugs, ...iterationBugs];
-        allTestBugs.forEach(b => {
-            const title = (b['Title'] || "").toLowerCase();
-            if (title.includes("missing") || title.includes("not covered") || title.includes("scenario") || 
-                title.includes("case") || title.includes("test")) {
-                gapCount++;
-            } else if (title.includes("execution") || title.includes("incorrect") || title.includes("wrong") || 
-                       title.includes("fail") || title.includes("error")) {
-                execCount++;
-            } else {
-                if ((b['BugType'] || "").trim().toUpperCase() === 'UAT') gapCount++;
-                else execCount++;
+            if (effortVariance > 15 && combinedReworkRatio > 15) {
+                insights.push(`<li><b>⚠️ Rework-Driven Slippage:</b> Both Effort Variance (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and Rework Ratio (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>) have breached control limits. This statistical correlation proves that iteration slippage is driven by heavy code stabilization and bug-fixing overhead rather than scoping changes.</li>`);
+            } else if (effortVariance > 15 && combinedReworkRatio <= 15) {
+                insights.push(`<li><b>🔍 Estimation Model Baseline Flaw:</b> Effort Variance is high (<span style="color:#e67e22; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) but Rework/Review metrics remain healthy (<span style="color:#27ae60; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This diagnostic signals that the baseline estimation models or story grooming breakdowns are flawed, as pure engineering hours exceeded estimates without quality friction.</li>`);
+            } else if (effortVariance <= 0 && combinedReworkRatio > 20) {
+                insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
             }
-        });
-        const totalTestBugs = allTestBugs.length;
-        if (totalTestBugs > 0) {
-            const gapRatio = (gapCount / totalTestBugs) * 100;
-            if (gapRatio > 60) {
-                insights.push(`<li><b>🧪 Test Coverage Gaps Detected (${gapRatio.toFixed(1)}%):</b> Many bugs indicate missing test scenarios or weak test cases. Focus on improving test design and coverage, especially for edge cases and integration paths.</li>`);
-            } else if (execCount / totalTestBugs > 60) {
-                insights.push(`<li><b>⚙️ Execution Precision Needed:</b> A significant portion of bugs are related to test execution errors (${(execCount/totalTestBugs*100).toFixed(1)}%). Ensure testers are following test scripts precisely and that the environment is stable.</li>`);
-            } else {
-                insights.push(`<li><b>🔬 Balanced Test Issues:</b> The testing phase reveals a mix of coverage gaps and execution inaccuracies. Continue refining both test case design and execution discipline.</li>`);
+
+            if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
+                insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${calculatedDre.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
+            } else if (calculatedDre >= 85 && s.bugsCount > 0) {
+                insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${calculatedDre.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
             }
+
+            if (s.bugsCount > 0) {
+                if (bugSeverityRatio > 30) {
+                    insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
+                    if (highSevReviews === 0) {
+                        insights.push(`<li><b>🔎 Review Blind Spot Diagnosis:</b> While testing detected <span style="color:#e74c3c; font-weight:bold;">${highSevBugs} High/Critical bugs</span>, Peer Reviews intercepted <span style="color:#747d8c; font-weight:bold;">0</span>. Peer audits are entirely blind to core architecture, integration constraints, or deep database schemas, acting only as superficial code format checks.</li>`);
+                    }
+                } else {
+                    insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
+                }
+            }
+
+            if (avgTimePerBug > 4 && s.bugsCount > 0) {
+                insights.push(`<li><b>Rework Friction:</b> Mean Time to Resolve (MTTR) a formal bug is high (<span style="color:#e67e22; font-weight:bold;">${avgTimePerBug.toFixed(1)}h/bug</span>). This signals deep structural dependencies or tracking overhead in logging timesheets.</li>`);
+                if (avgCycleTime > 5) {
+                    insights.push(`<li><b>⏳ Blocked Cycle Time Correlation:</b> The prolonged user story cycle time (<span style="color:#8e44ad; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) is statistically linked to the resolution complexity of bugs (${avgTimePerBug.toFixed(1)}h). User stories are stalling in the "Testing/Rework" phase for multiple days due to resolution drag.</li>`);
+                }
+            }
+
+            if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
+                insights.push(`<li><b>🛡️ High-Fidelity Pre-Emptive Review:</b> Peer reviews are filtering architectural flaws early (High-Sev Review: <span style="color:#27ae60; font-weight:bold;">${reviewSeverityRatio.toFixed(1)}%</span>) resulting in a highly clean and stable build deployed to testing (High-Sev Testing Bugs: <span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). This validates high engineering discipline.</li>`);
+            }
+
+            if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
+                insights.push(`<li><b>🚨 Superficial Peer-Review Pattern:</b> High volume of Peer Reviews (<span style="color:#8e44ad; font-weight:bold;">${s.reviewCount}</span>) detected zero high-severity issues, yet testing faced critical/high bottlenecks (<span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). Code sign-offs are purely process-driven/administrative without technical validation depth.</li>`);
+            }
+
+            if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
+                insights.push(`<li><b>🕵️ Hidden Rework & Timesheet Inaccuracy:</b> Significant effort variance found (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) with artificially low logged rework/review time (<span style="color:#e67e22; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Team members are likely fixing bugs and refactoring code implicitly under normal development hours without proper activity logging.</li>`);
+            }
+
+            if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
+                insights.push(`<li><b>🏗️ Severe Architectural Coupling:</b> Low defect density (Only <span style="color:#3498db; font-weight:bold;">${s.bugsCount} bugs</span>) but extreme MTTR (<span style="color:#e74c3c; font-weight:bold;">${avgTimePerBug.toFixed(1)} hours/bug</span>). The system suffers from high coupling or fragile dependencies; changing minor code paths requires massive code tracing and extensive debugging effort.</li>`);
+            }
+
+            if (uatLeakageRatio > 25 && s.bugsCount > 0) {
+                insights.push(`<li><b>💥 Severe Quality Gate Escape:</b> Out of total Defects, UAT Leakages reached <span style="color:#e74c3c; font-weight:bold;">${uatLeakageRatio.toFixed(1)}%</span>. Internal quality gates are misaligned with business integration logic or the staging environment lacks proper test-data combinations found in user-acceptance tracks.</li>`);
+            }
+
+            if (s.dbCountCount > 0 && avgCycleTime > 6 && bugSeverityRatio > 35) {
+                insights.push(`<li><b>🗄️ Database Coupling Friction:</b> Data tier modifications (FTE: <span style="color:#8e44ad; font-weight:bold;">${s.dbCountCount.toFixed(2)}</span>) are heavily correlating with an extended cycle time (<span style="color:#e67e22; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) and high bug severity. Changes in tables/schemas are causing breaking impacts across application blocks. Require stricter DB design reviews.</li>`);
+            }
+
+            if (s.devCountCount > 0 && s.testerCountCount > 0) {
+                const devToTesterRatio = s.devCountCount / s.testerCountCount;
+                if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
+                    insights.push(`<li><b>⚖️ Resource Skew & Test Bottleneck:</b> Asymmetric Dev-to-Tester Capacity ratio (<span style="color:#e67e22; font-weight:bold;">${devToTesterRatio.toFixed(1)}:1</span>) matched with UAT leakages. Testing capacity is diluted under a flood of incoming dev code updates, leading to shallow operational verification passes.</li>`);
+                }
+            }
+
+            if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && calculatedDre >= 90) {
+                insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
+            }
+
+            if (insights.length === 0) {
+                return "<li><b>✅ Balanced Quality Lifecycle:</b> No critical dynamic anomalies observed for this iteration. All performance, effort variances, and quality gating structures reside safely within engineering control thresholds.</li>";
+            }
+            
+            return insights.join('');
         }
-    }
-
-    // 6. Keyword Mining (most frequent word)
-    const sortedKeywords = Object.entries(keywordFrequency).sort((a,b) => b[1] - a[1]);
-    if (sortedKeywords.length > 0) {
-        const topKeyword = sortedKeywords[0];
-        if (topKeyword[1] > 3) {
-            insights.push(`<li><b>📊 Frequent Keyword in Defects:</b> The term "<span style="color:#2980b9; font-weight:bold;">${topKeyword[0]}</span>" appears in ${topKeyword[1]} bug/review titles. This may indicate a recurring issue area; consider a focused review of the related module.</li>`);
-        }
-    }
-
-    // Default if no insights triggered
-    if (insights.length === 0) {
-        return "<li><b>✅ Balanced Quality Lifecycle:</b> No critical anomalies observed. All quality metrics are within acceptable ranges.</li>";
-    }
-    return insights.join('');
-}
-// -----------------------------------------------------------------------------
-// MODIFIED renderTeamView: replaced the call to generateAdvancedQualityAnalysis
-// with the new function, passing the actual stories array for the business area.
-// -----------------------------------------------------------------------------
-function renderTeamView() {
-    const container = document.getElementById('team-view');
-    if (!processedStories || processedStories.length === 0) {
-        container.innerHTML = "<div class='card'><h2>Team Performance</h2><p>No data available.</p></div>";
-        return;
-    }
-    const grouped = groupBy(processedStories, 'businessArea');
-
-    // ... (existing code to compute devParticipation, testerParticipation, dbParticipation, etc.)
-
-    let html = `
-    <div style="direction: ltr; text-align: left; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px;">
-        <h2 style="margin-bottom:30px; color: #2c3e50; border-left: 6px solid #2ecc71; padding-left: 20px; font-size: 1.8em;"> 
-            🚀 Team Performance Analytics (Unified QC & Review Scope) 
-        </h2>`;
-
-    for (let area in grouped) {
-        const stories = grouped[area];
-        // ... (existing stats computation from stories, unchanged) ...
-        // ... (existing code for stats, devCountCount, testerCountCount, dbCountCount, threshold, etc.) ...
-
-        // ****************** REPLACED THIS PART ******************
-        // Instead of generateAdvancedQualityAnalysis(stats) we now call:
-        // generateAdvancedQualityAnalysisFromStories(stories)
-        // *******************************************************
 
         html += `
         <div class="card" style="background:#ffffff; border-radius:12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding:25px; margin-bottom:35px; border-top: 4px solid #2ccc71;">
-            ... (the same card header and metrics as before) ...
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #f1f2f6; padding-bottom:15px; margin-bottom:20px;">
+                <h3 style="margin:0; color:#2c3e50; font-size:1.4em; font-weight:700;">📂 Business Area: ${area}</h3>
+                <span style="background:#f1f2f6; color:#2c3e50; padding:6px 14px; border-radius:20px; font-size:0.85em; font-weight:600;">
+                    📊 Stories: <b>${stats.closedStoriesCount} / ${stats.totalStories} Closed</b>
+                </span>
+            </div>
+
+            <div style="display:flex; gap:15px; margin-bottom:25px; background:#f8f9fa; padding:12px; border-radius:8px; font-size:0.9em; color:#57606f; border:1px solid #edeec4;">
+                <span>👥 <b>FTE Dev Capacity:</b> ${devCountCount.toFixed(2)}</span> | 
+                <span>🧪 <b>FTE Tester Capacity:</b> ${testerCountCount.toFixed(2)}</span> | 
+                <span>🗄️ <b>FTE DB Capacity:</b> ${dbCountCount.toFixed(2)}</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:30px;">
+                
+                <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid ${varianceColor}; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                    <div style="font-size:0.85em; color:#747d8c; text-transform:uppercase; font-weight:600;">Effort Variance</div>
+                    <div style="font-size:1.8em; font-weight:700; color:${varianceColor}; margin:5px 0;">${effortVariance.toFixed(1)}%</div>
+                    <div style="font-size:0.8em; color:#57606f;">Est: <b>${stats.totalEst.toFixed(1)}h</b> | Act: <b>${stats.totalAct.toFixed(1)}h</b></div>
+                </div>
+
+                <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid ${reworkColor}; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                    <div style="font-size:0.85em; color:#747d8c; text-transform:uppercase; font-weight:600;">Rework & Review Ratio</div>
+                    <div style="font-size:1.8em; font-weight:700; color:${reworkColor}; margin:5px 0;">${combinedReworkRatio.toFixed(1)}%</div>
+                    <div style="font-size:0.8em; color:#57606f;">Bugs: <b>${stats.reworkTime.toFixed(1)}h</b> | Revs: <b>${stats.reviewTime.toFixed(1)}h</b></div>
+                </div>
+
+                <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid ${dreColor}; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                    <div style="font-size:0.85em; color:#747d8c; text-transform:uppercase; font-weight:600;">DRE</div>
+                    <div style="font-size:1.8em; font-weight:700; color:${dreColor}; margin:5px 0;">${dreValue}%</div>
+                    <div style="font-size:0.8em; color:#57606f;">UAT: <b>${stats.totalUatBugs}</b> / Iteration: <b>${stats.bugsCount}</b></div>
+                </div>
+
+                <div style="background:#fafafa; border-radius:10px; padding:20px; border-left:4px solid ${isExceeded ? '#e74c3c' : '#8e44ad'}; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                    <div style="font-size:0.85em; color:#747d8c; text-transform:uppercase; font-weight:600;">Avg Cycle Time</div>
+                    <div style="font-size:1.8em; font-weight:700; color:${isExceeded ? '#c0392b' : '#8e44ad'}; margin:5px 0;">${avgCycleTime} Days</div>
+                    <div style="font-size:0.75em; margin-top:6px; color:${isExceeded ? '#e74c3c' : '#2e7d32'};">
+                        ${thresholdMsg}
+                    </div>
+                    <div style="font-size:0.8em; color:#57606f;">Total Net Days: <b>${stats.totalCycleTime}</b></div>
+                </div>
+
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:25px; margin-bottom:20px;">
+                <div style="background:#fff; border:1px solid #eaeed8; border-radius:10px; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-weight:600; color:#2c3e50; border-bottom:1px solid #f1f2f6; padding-bottom:8px;">
+                        <span>🐞 Execution Bugs Detail</span>
+                        <span style="background:#ffebee; color:#c62828; font-size:0.8em; padding:2px 8px; border-radius:10px;">Count: ${stats.bugsCount}</span>
+                    </div>
+                    ${getSevBadges(stats.bugsCrit, stats.bugsHigh, stats.bugsMed, stats.bugsLow, stats.bugsCount)}
+                </div>
+
+                <div style="background:#fff; border:1px solid #eaeed8; border-radius:10px; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-weight:600; color:#2c3e50; border-bottom:1px solid #f1f2f6; padding-bottom:8px;">
+                        <span>🔎 Shift-Left Reviews Detail</span>
+                        <span style="background:#f3e5f5; color:#6a1b9a; font-size:0.8em; padding:2px 8px; border-radius:10px;">Count: ${stats.reviewCount}</span>
+                    </div>
+                    ${getSevBadges(stats.revCrit, stats.revHigh, stats.revMed, stats.revLow, stats.reviewCount)}
+                </div>
+            </div>
 
             <div style="margin-top:25px; background:#f9f9fb; border-radius:8px; padding:20px; border:1px solid #eccc68; box-shadow:inset 0 1px 3px rgba(0,0,0,0.02);">
                 <h4 style="margin:0 0 12px 0; color:#ffa502; font-size:1.05em; font-weight:700; display:flex; align-items:center; gap:8px;">
                     🧠 Defect Analyses
                 </h4>
                 <ul style="margin:0; padding-left:20px; font-size:0.92em; color:#2c3e50; line-height:1.6;">
-                    ${generateAdvancedQualityAnalysisFromStories(stories)}
+                    ${generateAdvancedQualityAnalysis(stats)}
                 </ul>
             </div>
+
         </div>`;
     }
 
     html += `</div>`;
     container.innerHTML = html;
 }
-        
+function renderPeopleView() {
+    const container = document.getElementById('people-view');
+    if (!container) return;
+
+    const businessAreas = {};
+
+    processedStories.forEach(us => {
+        const area = us.businessArea || 'General';
+        if (!businessAreas[area]) businessAreas[area] = {};
+        const peopleMap = businessAreas[area];
+        const isReport = us.title && us.title.toLowerCase().includes("patient reports");
+
+        us.tasks.forEach(t => {
+            const person = t['Assigned To'];
+            if (!person) return;
+            if (!peopleMap[person]) {
+                peopleMap[person] = {
+                    name: person,
+                    devHours: 0,
+                    testHours: 0,
+                    dbHours: 0,
+                    stories: new Set(),
+                    reportStories: new Set(),
+                    genericBugs: { count: 0, hours: 0 },
+                    specificBugs: { count: 0, hours: 0 },
+                    reviews: { count: 0, hours: 0 }
+                };
+            }
+            const actDev = parseFloat(t['TimeSheet_DevActualTime']) || 0;
+            const actTest = parseFloat(t['TimeSheet_TestingActualTime']) || 0;
+            const activity = t['Activity'];
+            if (activity === 'Testing') peopleMap[person].testHours += actTest;
+            else if (activity === 'DB Modification') peopleMap[person].dbHours += actDev;
+            else if (activity === 'Development') peopleMap[person].devHours += actDev;
+            peopleMap[person].stories.add(us.id);
+            if (isReport) peopleMap[person].reportStories.add(us.id);
+        });
+
+        const devLead = us.devLead;
+        if (devLead && peopleMap[devLead]) {
+            peopleMap[devLead].genericBugs.count += us.rework.generic.count;
+            peopleMap[devLead].genericBugs.hours += us.rework.generic.actualTime;
+            peopleMap[devLead].specificBugs.count += us.rework.specific.count;
+            peopleMap[devLead].specificBugs.hours += us.rework.specific.actualTime;
+        }
+    });
+
+    let html = `
+        <div style="direction: ltr; text-align: left; font-family: 'Segoe UI', sans-serif;">
+            <h2 style="margin-bottom:30px; color: #123b63; border-left: 6px solid #3498db; padding-left: 20px;">👥 Team Performance by Business Area</h2>`;
+
+    for (let area in businessAreas) {
+        html += `
+            <div class="area-section" style="margin-bottom: 50px; border: 1px solid #ddd; border-radius: 8px; padding: 20px; background: #fcfcfc;">
+                <h3 style="background: #2980b9; padding: 12px 20px; border-radius: 5px; color: white; margin-top: 0;">🏢 Business Area: ${area}</h3>`;
+
+        const allPeople = Object.values(businessAreas[area]);
+        const devs = allPeople.filter(p => p.devHours > 0);
+        const testers = allPeople.filter(p => p.testHours > 0);
+        const dbs = allPeople.filter(p => p.dbHours > 0);
+
+        const renderRoleTable = (title, peopleList, color) => {
+            if (peopleList.length === 0) return '';
+            let tableHtml = `
+                <div style="margin-top: 25px;">
+                    <h4 style="color: ${color}; border-bottom: 2px solid ${color}; display: inline-block; padding-bottom: 5px;">${title}</h4>
+                    <div class="table-container" style="overflow-x:auto; margin-top: 10px;">
+                        <table style="width:100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <thead>
+                                <tr style="background: ${color}; color: Black;">
+                                    <th style="padding: 12px; text-align: left;">Name</th>
+                                    <th style="padding: 12px; text-align: center;">Stories</th>
+                                    <th style="padding: 12px; text-align: center;">Reports</th>
+                                    <th style="padding: 12px; text-align: center;">Dev Hours</th>
+                                    <th style="padding: 12px; text-align: center;">Test Hours</th>
+                                    <th style="padding: 12px; text-align: center;">DB Hours</th>
+                                    <th style="padding: 12px; text-align: center;">Spec. Bugs</th>
+                                    <th style="padding: 12px; text-align: center;">Gen. Bugs</th>
+                                    <th style="padding: 12px; text-align: center;">Total</th>
+                                  </tr>
+                            </thead>
+                            <tbody>`;
+            peopleList.forEach(p => {
+                const totalWork = p.devHours + p.testHours + p.dbHours;
+                tableHtml += `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: bold; color: #34495e;">${p.name}</td>
+                        <td style="padding: 10px; text-align: center;">${p.stories.size}</td>
+                        <td style="padding: 10px; text-align: center; font-weight: bold; color: #2980b9; background: #f0f7ff;">${p.reportStories.size}</td>
+                        <td style="padding: 10px; text-align: center;">${p.devHours.toFixed(1)}h</td>
+                        <td style="padding: 10px; text-align: center;">${p.testHours.toFixed(1)}h</td>
+                        <td style="padding: 10px; text-align: center;">${p.dbHours.toFixed(1)}h</td>
+                        <td style="padding: 10px; text-align: center; background: #fff5f5;">
+                            <span style="color: #c0392b; font-weight:bold;">${p.specificBugs.count}</span>
+                            <br><small style="color: #666;">${p.specificBugs.hours.toFixed(1)}h</small>
+                        </td>
+                        <td style="padding: 10px; text-align: center; background: #fffaf5;">
+                            <span style="color: #d35400; font-weight:bold;">${p.genericBugs.count}</span>
+                            <br><small style="color: #666;">${p.genericBugs.hours.toFixed(1)}h</small>
+                        </td>
+                        <td style="padding: 10px; text-align: center; font-weight: bold;">${totalWork.toFixed(1)}h</td>
+                    </tr>`;
+            });
+            tableHtml += `</tbody>点心</div></div>`;
+            return tableHtml;
+        };
+
+        html += renderRoleTable('💻 Development Team', devs, '#2c3e50');
+        html += renderRoleTable('🧪 Testing Team', testers, '#27ae60');
+        html += renderRoleTable('🗄️ Database Team', dbs, '#8e44ad');
+        html += `</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
 function renderNotTestedView() {
     const container = document.getElementById('not-tested-view');
     const notTested = processedStories.filter(us => us.status !== 'Tested');
