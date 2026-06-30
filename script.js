@@ -1097,18 +1097,20 @@ function renderTeamView() {
                 stats.reviewActivities = stats.reviewActivities.concat(us.reviewActivities || []);
                 stats.reviewCategories = stats.reviewCategories.concat(us.reviewCategories || []);
             }
-                    // --- NEW: Track highest cycle time story ---
-        const storyTotalEst = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
-        const storyReviewTime = us.reviewStats.devActual + us.reviewStats.testActual;
-        const storyTotalAct = us.devEffort.actual + us.testEffort.actual + (us.dbEffort?.actual || 0) + us.rework.actualTime + storyReviewTime;
+                   // --- NEW: Track highest cycle time story ---
+const storyTotalEst = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
+const storyReviewTime = us.reviewStats.devActual + us.reviewStats.testActual;
+const storyTotalAct = us.devEffort.actual + us.testEffort.actual + (us.dbEffort?.actual || 0) + us.rework.actualTime + storyReviewTime;
 
-        if (us.cycleTime > (stats.maxCycleTime || 0)) {
-            stats.maxCycleTime = us.cycleTime;
-            stats.maxCycleTimeStoryId = us.id || 'Unknown';
-            stats.maxCycleTimeStoryEst = storyTotalEst;
-            stats.maxCycleTimeStoryRework = us.rework.actualTime || 0;
-        }
-        // --- END NEW ---
+if (us.cycleTime > (stats.maxCycleTime || 0)) {
+    stats.maxCycleTime = us.cycleTime;
+    stats.maxCycleTimeStoryId = us.id || 'Unknown';
+    stats.maxCycleTimeStoryEst = storyTotalEst;
+    stats.maxCycleTimeStoryRework = us.rework.actualTime || 0;
+    // NEW: Store cycle hours using 5-hour workday
+    stats.maxCycleTimeStoryHours = us.cycleTime * 5;
+}
+// --- END NEW ---
 
             if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') {
                 stats.closedStoriesCount++;
@@ -1450,18 +1452,18 @@ function generateAdvancedQualityAnalysis(s) {
 
     // ========== NEW: Highest Cycle Time Story with Comparisons ==========
 
-    // 17. Highest Cycle Time Story (compared to Estimation and Rework)
-    if (s.maxCycleTimeStoryId && s.maxCycleTime > 0) {
-        const cycleDays = s.maxCycleTime;
-        const estHours = s.maxCycleTimeStoryEst || 0;
-        const reworkHours = s.maxCycleTimeStoryRework || 0;
-        // Convert days to hours (assuming 8 working hours per day) for comparison
-        const cycleHours = cycleDays * 8;
-        const estVsCycleRatio = estHours > 0 ? ((cycleHours / estHours) * 100).toFixed(1) : 'N/A';
-        const reworkVsCycleRatio = cycleHours > 0 ? ((reworkHours / cycleHours) * 100).toFixed(1) : 'N/A';
-        const explanation = `Story '${s.maxCycleTimeStoryId}': Cycle Time = ${cycleDays} days (${cycleHours}h), Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.`;
-        insights.push(`<li><b>Highest Cycle Time Story</b> ${infoIcon(explanation)}: Story <b>${s.maxCycleTimeStoryId}</b> has the highest cycle time (${cycleDays} days, ${cycleHours}h). Total Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.</li>`);
-    }
+// 17. Highest Cycle Time Story (compared to Estimation and Rework)
+if (s.maxCycleTimeStoryId && s.maxCycleTime > 0) {
+    const cycleDays = s.maxCycleTime;
+    const estHours = s.maxCycleTimeStoryEst || 0;
+    const reworkHours = s.maxCycleTimeStoryRework || 0;
+    // Convert days to hours using 5-hour workday (as requested)
+    const cycleHours = cycleDays * 5;
+    const estVsCycleRatio = estHours > 0 ? ((cycleHours / estHours) * 100).toFixed(1) : 'N/A';
+    const reworkVsCycleRatio = cycleHours > 0 ? ((reworkHours / cycleHours) * 100).toFixed(1) : 'N/A';
+    const explanation = `Story '${s.maxCycleTimeStoryId}': Cycle Time = ${cycleDays} days (${cycleHours}h, based on 5h/day), Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.`;
+    insights.push(`<li><b>Highest Cycle Time Story</b> ${infoIcon(explanation)}: Story <b>${s.maxCycleTimeStoryId}</b> has the highest cycle time (${cycleDays} days, ${cycleHours}h). Total Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.</li>`);
+}
 
     // Fallback if no insights at all
     if (insights.length === 0) {
