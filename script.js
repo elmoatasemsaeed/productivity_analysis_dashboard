@@ -240,22 +240,68 @@ function processData() {
 
     calculateMetrics();
 }
+// ========== Helper Classification Functions ==========
+function classifyBugTitle(title) {
+    const t = title.toLowerCase();
+    if (t.includes('ui') || t.includes('design') || t.includes('screen') || t.includes('button') || t.includes('layout')) return 'UI';
+    if (t.includes('db') || t.includes('data') || t.includes('sql') || t.includes('table') || t.includes('column')) return 'DB';
+    if (t.includes('perform') || t.includes('slow') || t.includes('timeout') || t.includes('load')) return 'Performance';
+    if (t.includes('logic') || t.includes('rule') || t.includes('calculation') || t.includes('business')) return 'Logic';
+    return 'Other';
+}
+
+function classifyReviewTitle(title) {
+    const t = title.toLowerCase();
+    if (t.includes('code') || t.includes('standard') || t.includes('naming') || t.includes('architecture') || t.includes('refactor') || t.includes('style')) return 'Code Standards';
+    if (t.includes('business') || t.includes('logic') || t.includes('rule') || t.includes('requirement') || t.includes('function')) return 'Business Logic';
+    return 'Other';
+}
 
 function calculateMetrics() {
+    processedStories = [];
+    let currentStory = null;
+
+    rawData.forEach(row => {
+        const type = row['Work Item Type'];
+        
+        if (type === 'User Story') {
+            currentStory = {
+                id: row['ID'],
+                title: row['Title'],
+                businessArea: row['Business Area'] || 'General',
+                devLead: row['Assigned To'],
+                testerLead: row['Assigned To Tester'],
+                testedDate: row['Tested Date'],
+                activatedDate: row['Activated Date'],
+                status: row['State'],
+                tasks: [],
+                bugs: [],
+                reviews: []
+            };
+            processedStories.push(currentStory);
+        } else if (currentStory) {
+            if (type === 'Task') currentStory.tasks.push(row);
+            if (type === 'Bug') currentStory.bugs.push(row);
+            if (type === 'Review') currentStory.reviews.push(row);
+        }
+    });
+
+    // --- Process each story with enhanced metrics ---
     processedStories.forEach(us => {
         let devOrig = 0, devActual = 0, testOrig = 0, testActual = 0;
-        let dbOrig = 0, dbActual = 0, dbNames = new Set();
+        let dbOrig = 0, dbActual = 0, dbNames = new Set(); 
 
+        // 1. Task calculations (Development, Testing, DB)
         us.tasks.forEach(t => {
             const orig = parseFloat(t['Original Estimation']) || 0;
-            const actDev = parseFloat(t['TimeSheet_DevActualTime']) || 0;
+            const actDev = parseFloat(t['TimeSheet_DevActualTime']) || 0; 
             const actTest = parseFloat(t['TimeSheet_TestingActualTime']) || 0;
             const activity = t['Activity'];
 
             if (activity === 'DB Modification') {
                 dbOrig += orig;
-                dbActual += actDev;
-                if (t['Assigned To']) dbNames.add(t['Assigned To']);
+                dbActual += actDev; 
+                if (t['Assigned To']) dbNames.add(t['Assigned To']); 
             } else if (activity === 'Development') {
                 devOrig += orig;
                 devActual += actDev;
@@ -276,10 +322,11 @@ function calculateMetrics() {
 
         let bugOrig = 0, bugActualTotal = 0, bugsNoTimesheet = 0;
         us.severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+
         us.rework = {
             generic: { count: 0, actualTime: 0, severity: { critical: 0, high: 0, medium: 0, low: 0 } },
             specific: { count: 0, actualTime: 0, severity: { critical: 0, high: 0, medium: 0, low: 0 } },
-            severity: { critical: 0, high: 0, medium: 0, low: 0 },
+            severity: { critical: 0, high: 0, medium: 0, low: 0 }, 
             timeEstimation: 0,
             actualTime: 0,
             count: 0,
@@ -287,12 +334,24 @@ function calculateMetrics() {
             iterationBugsCount: 0
         };
 
+        // --- NEW: Arrays for storing titles and categories ---
+        us.bugTitles = [];
+        us.bugCategories = [];
+        us.reviewTitles = [];
+        us.reviewActivities = [];
+        us.reviewCategories = [];
+
         us.bugs.forEach(b => {
             const isGeneric = (b['GenericBug'] || "").trim().toLowerCase() === 'yes';
             const bDevAct = parseFloat(b['TimeSheet_DevActualTime']) || 0;
             const bEst = parseFloat(b['Original Estimation']) || 0;
             const sev = b['Severity'] || "";
             const bugType = (b['BugType'] || "").trim().toUpperCase();
+
+            // Store title and category
+            const title = b['Title'] || '';
+            us.bugTitles.push(title);
+            us.bugCategories.push(classifyBugTitle(title));
 
             if (bugType === 'UAT') {
                 us.rework.uatBugsCount++;
@@ -336,7 +395,8 @@ function calculateMetrics() {
         us.rework.missingTimesheet = bugsNoTimesheet;
         us.rework.deviation = bugOrig / (bugActualTotal || 1);
         us.rework.percentage = (bugActualTotal / (us.devEffort.actual || 1)) * 100;
-        
+
+        // 3. Reviews
         us.reviewStats = {
             estimation: 0,
             devActual: 0, 
@@ -358,6 +418,12 @@ function calculateMetrics() {
 
                 us.reviewStats.estimation += rEst;
 
+                // Store review title and activity/category
+                const title = r['Title'] || '';
+                us.reviewTitles.push(title);
+                us.reviewActivities.push(activity || '');
+                us.reviewCategories.push(classifyReviewTitle(title));
+
                 if (activity === 'Development') {
                     us.reviewStats.devActual += rDevAct;
                     us.reviewStats.devCount++;
@@ -375,12 +441,12 @@ function calculateMetrics() {
             us.reviewStats.totalActual = us.reviewStats.devActual + us.reviewStats.testActual;
         }
 
+        // 4. Timeline and Cycle Time
         let minDate = Infinity;
         us.tasks.forEach(t => {
             const taskDate = new Date(t['Activated Date']).getTime();
             if (!isNaN(taskDate) && taskDate < minDate) minDate = taskDate;
         });
-
         const firstTaskStart = minDate === Infinity ? null : new Date(minDate);
         const storyEndDate = us.testedDate ? new Date(us.testedDate) : null;
         us.cycleTime = calculateCycleTimeDays(firstTaskStart, storyEndDate);
@@ -937,7 +1003,18 @@ function renderTeamView() {
             closedStoriesCount: 0,
             totalCycleTime: 0,
             totalUatBugs: 0,
-            totalIterationBugs: 0
+            totalIterationBugs: 0,
+            // --- NEW fields for enhanced analysis ---
+            genericBugCount: 0,
+            specificBugCount: 0,
+            bugDistributionByDev: {},
+            bugDistributionByStory: {},
+            bugSeverityByStory: {},
+            bugTitles: [],
+            bugCategories: [],
+            reviewTitles: [],
+            reviewActivities: [],
+            reviewCategories: []
         };
 
         let devCountCount = 0;
@@ -952,6 +1029,10 @@ function renderTeamView() {
         areaDbs[area].forEach(db => {
             if(dbParticipation[db]) dbCountCount += (1 / dbParticipation[db]);
         });
+        // Store for use in insights
+        stats.devCountCount = devCountCount;
+        stats.testerCountCount = testerCountCount;
+        stats.dbCountCount = dbCountCount;
 
         grouped[area].forEach(us => {
             const sEst = us.devEffort.orig + us.testEffort.orig + (us.dbEffort?.orig || 0);
@@ -976,6 +1057,42 @@ function renderTeamView() {
 
             stats.totalUatBugs += (us.rework.uatBugsCount || 0);
             stats.totalIterationBugs += (us.rework.iterationBugsCount || 0);
+
+            // --- NEW: Aggregation of additional metrics ---
+            // Generic vs Specific
+            stats.genericBugCount += (us.rework.generic ? us.rework.generic.count : 0);
+            stats.specificBugCount += (us.rework.specific ? us.rework.specific.count : 0);
+
+            // Bug distribution by Developer
+            const dev = us.devLead || 'Unassigned';
+            stats.bugDistributionByDev[dev] = (stats.bugDistributionByDev[dev] || 0) + us.bugs.length;
+
+            // Bug distribution by Story (ID)
+            const storyId = us.id || 'Unknown';
+            stats.bugDistributionByStory[storyId] = (stats.bugDistributionByStory[storyId] || 0) + us.bugs.length;
+
+            // Bug severity by Story
+            if (!stats.bugSeverityByStory[storyId]) {
+                stats.bugSeverityByStory[storyId] = { critical: 0, high: 0, medium: 0, low: 0 };
+            }
+            us.bugs.forEach(b => {
+                const sev = b['Severity'] || '';
+                if (sev.includes('1 - Critical')) stats.bugSeverityByStory[storyId].critical++;
+                else if (sev.includes('2 - High')) stats.bugSeverityByStory[storyId].high++;
+                else if (sev.includes('3 - Medium')) stats.bugSeverityByStory[storyId].medium++;
+                else if (sev.includes('4 - Low')) stats.bugSeverityByStory[storyId].low++;
+            });
+
+            // Collect titles and categories for bugs and reviews
+            if (us.bugTitles) {
+                stats.bugTitles = stats.bugTitles.concat(us.bugTitles);
+                stats.bugCategories = stats.bugCategories.concat(us.bugCategories || []);
+            }
+            if (us.reviewTitles) {
+                stats.reviewTitles = stats.reviewTitles.concat(us.reviewTitles);
+                stats.reviewActivities = stats.reviewActivities.concat(us.reviewActivities || []);
+                stats.reviewCategories = stats.reviewCategories.concat(us.reviewCategories || []);
+            }
 
             if (us.status === 'Closed' || us.status === 'Tested' || us.status === 'Resolved' || us.status === 'To Be Reviewed') {
                 stats.closedStoriesCount++;
@@ -1024,108 +1141,6 @@ function renderTeamView() {
                 <div style="${badgeStyle('#f5f5f5', '#7f8c8d', '#e0e0e0')}"><span style="font-size:10px; font-weight:600;">Low</span><b style="font-size:14px; margin-top:2px;">${l}</b><span style="font-size:9px; opacity:0.8;">${pct(l)}%</span></div>
              </div>`;
         };
-
-        function generateAdvancedQualityAnalysis(s) {
-            let insights = [];
-            
-            const totalIssues = s.bugsCount + s.reviewCount;
-            const reviewCatchRate = totalIssues > 0 ? (s.reviewCount / totalIssues) * 100 : 0;
-            const highSevBugs = s.bugsCrit + s.bugsHigh;
-            const highSevReviews = s.revCrit + s.revHigh;
-            const avgTimePerBug = s.bugsCount > 0 ? (s.reworkTime / s.bugsCount) : 0;
-            
-            const effortVariance = s.totalEst > 0 ? ((s.totalAct - s.totalEst) / s.totalEst) * 100 : 0;
-            const combinedReworkRatio = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
-            const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
-            
-            const totalAllBugsLocal = s.bugsCount + (s.totalUatBugs || 0);
-            const calculatedDre = totalAllBugsLocal > 0 ? (s.bugsCount / totalAllBugsLocal) * 100 : 100;
-
-            const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
-            const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
-            const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
-
-            if (reviewCatchRate > 40) {
-                insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal testing execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
-            } else if (reviewCatchRate > 15) {
-                insights.push(`<li><b>Shift-Left Progression:</b> Peer Reviews managed to catch <span style="color:#3498db; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of product defects. There is room to further strengthen code reviews to optimize the quality pipeline.</li>`);
-            } else {
-                insights.push(`<li><b>Shift-Left Risk Warning:</b> Peer Reviews intercepted only <span style="color:#e74c3c; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total anomalies. The majority of issues were pushed directly into formal testing, increasing downstream pressure on Testing. Immediately reinforce code-review policies.</li>`);
-            }
-
-            if (effortVariance > 15 && combinedReworkRatio > 15) {
-                insights.push(`<li><b>⚠️ Rework-Driven Slippage:</b> Both Effort Variance (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and Rework Ratio (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>) have breached control limits. This statistical correlation proves that iteration slippage is driven by heavy code stabilization and bug-fixing overhead rather than scoping changes.</li>`);
-            } else if (effortVariance > 15 && combinedReworkRatio <= 15) {
-                insights.push(`<li><b>🔍 Estimation Model Baseline Flaw:</b> Effort Variance is high (<span style="color:#e67e22; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) but Rework/Review metrics remain healthy (<span style="color:#27ae60; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This diagnostic signals that the baseline estimation models or story grooming breakdowns are flawed, as pure engineering hours exceeded estimates without quality friction.</li>`);
-            } else if (effortVariance <= 0 && combinedReworkRatio > 20) {
-                insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
-            }
-
-            if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
-                insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${calculatedDre.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
-            } else if (calculatedDre >= 85 && s.bugsCount > 0) {
-                insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${calculatedDre.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
-            }
-
-            if (s.bugsCount > 0) {
-                if (bugSeverityRatio > 30) {
-                    insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
-                    if (highSevReviews === 0) {
-                        insights.push(`<li><b>🔎 Review Blind Spot Diagnosis:</b> While testing detected <span style="color:#e74c3c; font-weight:bold;">${highSevBugs} High/Critical bugs</span>, Peer Reviews intercepted <span style="color:#747d8c; font-weight:bold;">0</span>. Peer audits are entirely blind to core architecture, integration constraints, or deep database schemas, acting only as superficial code format checks.</li>`);
-                    }
-                } else {
-                    insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
-                }
-            }
-
-            if (avgTimePerBug > 4 && s.bugsCount > 0) {
-                insights.push(`<li><b>Rework Friction:</b> Mean Time to Resolve (MTTR) a formal bug is high (<span style="color:#e67e22; font-weight:bold;">${avgTimePerBug.toFixed(1)}h/bug</span>). This signals deep structural dependencies or tracking overhead in logging timesheets.</li>`);
-                if (avgCycleTime > 5) {
-                    insights.push(`<li><b>⏳ Blocked Cycle Time Correlation:</b> The prolonged user story cycle time (<span style="color:#8e44ad; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) is statistically linked to the resolution complexity of bugs (${avgTimePerBug.toFixed(1)}h). User stories are stalling in the "Testing/Rework" phase for multiple days due to resolution drag.</li>`);
-                }
-            }
-
-            if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
-                insights.push(`<li><b>🛡️ High-Fidelity Pre-Emptive Review:</b> Peer reviews are filtering architectural flaws early (High-Sev Review: <span style="color:#27ae60; font-weight:bold;">${reviewSeverityRatio.toFixed(1)}%</span>) resulting in a highly clean and stable build deployed to testing (High-Sev Testing Bugs: <span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). This validates high engineering discipline.</li>`);
-            }
-
-            if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
-                insights.push(`<li><b>🚨 Superficial Peer-Review Pattern:</b> High volume of Peer Reviews (<span style="color:#8e44ad; font-weight:bold;">${s.reviewCount}</span>) detected zero high-severity issues, yet testing faced critical/high bottlenecks (<span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). Code sign-offs are purely process-driven/administrative without technical validation depth.</li>`);
-            }
-
-            if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
-                insights.push(`<li><b>🕵️ Hidden Rework & Timesheet Inaccuracy:</b> Significant effort variance found (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) with artificially low logged rework/review time (<span style="color:#e67e22; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Team members are likely fixing bugs and refactoring code implicitly under normal development hours without proper activity logging.</li>`);
-            }
-
-            if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
-                insights.push(`<li><b>🏗️ Severe Architectural Coupling:</b> Low defect density (Only <span style="color:#3498db; font-weight:bold;">${s.bugsCount} bugs</span>) but extreme MTTR (<span style="color:#e74c3c; font-weight:bold;">${avgTimePerBug.toFixed(1)} hours/bug</span>). The system suffers from high coupling or fragile dependencies; changing minor code paths requires massive code tracing and extensive debugging effort.</li>`);
-            }
-
-            if (uatLeakageRatio > 25 && s.bugsCount > 0) {
-                insights.push(`<li><b>💥 Severe Quality Gate Escape:</b> Out of total Defects, UAT Leakages reached <span style="color:#e74c3c; font-weight:bold;">${uatLeakageRatio.toFixed(1)}%</span>. Internal quality gates are misaligned with business integration logic or the staging environment lacks proper test-data combinations found in user-acceptance tracks.</li>`);
-            }
-
-            if (s.dbCountCount > 0 && avgCycleTime > 6 && bugSeverityRatio > 35) {
-                insights.push(`<li><b>🗄️ Database Coupling Friction:</b> Data tier modifications (FTE: <span style="color:#8e44ad; font-weight:bold;">${s.dbCountCount.toFixed(2)}</span>) are heavily correlating with an extended cycle time (<span style="color:#e67e22; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) and high bug severity. Changes in tables/schemas are causing breaking impacts across application blocks. Require stricter DB design reviews.</li>`);
-            }
-
-            if (s.devCountCount > 0 && s.testerCountCount > 0) {
-                const devToTesterRatio = s.devCountCount / s.testerCountCount;
-                if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
-                    insights.push(`<li><b>⚖️ Resource Skew & Test Bottleneck:</b> Asymmetric Dev-to-Tester Capacity ratio (<span style="color:#e67e22; font-weight:bold;">${devToTesterRatio.toFixed(1)}:1</span>) matched with UAT leakages. Testing capacity is diluted under a flood of incoming dev code updates, leading to shallow operational verification passes.</li>`);
-                }
-            }
-
-            if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && calculatedDre >= 90) {
-                insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
-            }
-
-            if (insights.length === 0) {
-                return "<li><b>✅ Balanced Quality Lifecycle:</b> No critical dynamic anomalies observed for this iteration. All performance, effort variances, and quality gating structures reside safely within engineering control thresholds.</li>";
-            }
-            
-            return insights.join('');
-        }
 
         html += `
         <div class="card" style="background:#ffffff; border-radius:12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding:25px; margin-bottom:35px; border-top: 4px solid #2ccc71;">
@@ -1206,6 +1221,246 @@ function renderTeamView() {
     html += `</div>`;
     container.innerHTML = html;
 }
+function generateAdvancedQualityAnalysis(s) {
+    let insights = [];
+
+    // ========== Existing calculations (kept) ==========
+    const totalIssues = s.bugsCount + s.reviewCount;
+    const reviewCatchRate = totalIssues > 0 ? (s.reviewCount / totalIssues) * 100 : 0;
+    const highSevBugs = s.bugsCrit + s.bugsHigh;
+    const highSevReviews = s.revCrit + s.revHigh;
+    const avgTimePerBug = s.bugsCount > 0 ? (s.reworkTime / s.bugsCount) : 0;
+    const effortVariance = s.totalEst > 0 ? ((s.totalAct - s.totalEst) / s.totalEst) * 100 : 0;
+    const combinedReworkRatio = ((s.reworkTime + s.reviewTime) / (s.totalAct || 1)) * 100;
+    const avgCycleTime = s.totalStories > 0 ? (s.totalCycleTime / s.totalStories) : 0;
+    const totalAllBugsLocal = s.bugsCount + (s.totalUatBugs || 0);
+    const calculatedDre = totalAllBugsLocal > 0 ? (s.bugsCount / totalAllBugsLocal) * 100 : 100;
+    const bugSeverityRatio = s.bugsCount > 0 ? (highSevBugs / s.bugsCount) * 100 : 0;
+    const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
+    const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
+
+    // ========== Existing insights (kept) ==========
+    if (reviewCatchRate > 40) {
+        insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted <span style="color:#27ae60; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total issues before reaching the formal testing execution cycle. This indicates a proactive engineering culture with strong desk-checks.</li>`);
+    } else if (reviewCatchRate > 15) {
+        insights.push(`<li><b>Shift-Left Progression:</b> Peer Reviews managed to catch <span style="color:#3498db; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of product defects. There is room to further strengthen code reviews to optimize the quality pipeline.</li>`);
+    } else {
+        insights.push(`<li><b>Shift-Left Risk Warning:</b> Peer Reviews intercepted only <span style="color:#e74c3c; font-weight:bold;">${reviewCatchRate.toFixed(1)}%</span> of total anomalies. The majority of issues were pushed directly into formal testing, increasing downstream pressure on Testing. Immediately reinforce code-review policies.</li>`);
+    }
+
+    if (effortVariance > 15 && combinedReworkRatio > 15) {
+        insights.push(`<li><b>⚠️ Rework-Driven Slippage:</b> Both Effort Variance (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and Rework Ratio (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>) have breached control limits. This statistical correlation proves that iteration slippage is driven by heavy code stabilization and bug-fixing overhead rather than scoping changes.</li>`);
+    } else if (effortVariance > 15 && combinedReworkRatio <= 15) {
+        insights.push(`<li><b>🔍 Estimation Model Baseline Flaw:</b> Effort Variance is high (<span style="color:#e67e22; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) but Rework/Review metrics remain healthy (<span style="color:#27ae60; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This diagnostic signals that the baseline estimation models or story grooming breakdowns are flawed, as pure engineering hours exceeded estimates without quality friction.</li>`);
+    } else if (effortVariance <= 0 && combinedReworkRatio > 20) {
+        insights.push(`<li><b>⚡ Aggressive Coding & Velocity Risk:</b> The area delivered within/under the estimated budget (Variance: <span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>), yet rework density is critical (<span style="color:#e74c3c; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). This pattern alerts to "aggressive rushing" to meet deadlines, causing technical debt that will likely trigger regressions.</li>`);
+    }
+
+    if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
+        insights.push(`<li><b>🛑 Degraded Quality Shield (Low DRE):</b> Defect Removal Efficiency dropped to <span style="color:#e74c3c; font-weight:bold;">${calculatedDre.toFixed(1)}%</span> due to <span style="color:#e74c3c; font-weight:bold;">${s.totalUatBugs} UAT Leakages</span>. The internal verification tracks (Testing & Reviews) are bypassing critical end-user business scenarios; staging integration tests require alignment with production workflows.</li>`);
+    } else if (calculatedDre >= 85 && s.bugsCount > 0) {
+        insights.push(`<li><b>🎯 Elite Verification Integrity:</b> Outstanding DRE at <span style="color:#27ae60; font-weight:bold;">${calculatedDre.toFixed(1)}%</span>. The combination of peer checks and internal testing execution acted as a near-perfect barrier, containing defects internally and protecting the customer environment.</li>`);
+    }
+
+    if (s.bugsCount > 0) {
+        if (bugSeverityRatio > 30) {
+            insights.push(`<li><b>Defect Severity Alert:</b> Highly severe defects (Critical/High) constitute <span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span> of the formal test cycle bugs. Focus on architectural stability and technical requirements alignment during development.</li>`);
+            if (highSevReviews === 0) {
+                insights.push(`<li><b>🔎 Review Blind Spot Diagnosis:</b> While testing detected <span style="color:#e74c3c; font-weight:bold;">${highSevBugs} High/Critical bugs</span>, Peer Reviews intercepted <span style="color:#747d8c; font-weight:bold;">0</span>. Peer audits are entirely blind to core architecture, integration constraints, or deep database schemas, acting only as superficial code format checks.</li>`);
+            }
+        } else {
+            insights.push(`<li><b>Defect Profile Stability:</b> High-severity leaks during execution are low (<span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>), meaning most detected bugs are minor/functional tweaks.</li>`);
+        }
+    }
+
+    if (avgTimePerBug > 4 && s.bugsCount > 0) {
+        insights.push(`<li><b>Rework Friction:</b> Mean Time to Resolve (MTTR) a formal bug is high (<span style="color:#e67e22; font-weight:bold;">${avgTimePerBug.toFixed(1)}h/bug</span>). This signals deep structural dependencies or tracking overhead in logging timesheets.</li>`);
+        if (avgCycleTime > 5) {
+            insights.push(`<li><b>⏳ Blocked Cycle Time Correlation:</b> The prolonged user story cycle time (<span style="color:#8e44ad; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) is statistically linked to the resolution complexity of bugs (${avgTimePerBug.toFixed(1)}h). User stories are stalling in the "Testing/Rework" phase for multiple days due to resolution drag.</li>`);
+        }
+    }
+
+    if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
+        insights.push(`<li><b>🛡️ High-Fidelity Pre-Emptive Review:</b> Peer reviews are filtering architectural flaws early (High-Sev Review: <span style="color:#27ae60; font-weight:bold;">${reviewSeverityRatio.toFixed(1)}%</span>) resulting in a highly clean and stable build deployed to testing (High-Sev Testing Bugs: <span style="color:#27ae60; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). This validates high engineering discipline.</li>`);
+    }
+
+    if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
+        insights.push(`<li><b>🚨 Superficial Peer-Review Pattern:</b> High volume of Peer Reviews (<span style="color:#8e44ad; font-weight:bold;">${s.reviewCount}</span>) detected zero high-severity issues, yet testing faced critical/high bottlenecks (<span style="color:#e74c3c; font-weight:bold;">${bugSeverityRatio.toFixed(1)}%</span>). Code sign-offs are purely process-driven/administrative without technical validation depth.</li>`);
+    }
+
+    if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
+        insights.push(`<li><b>🕵️ Hidden Rework & Timesheet Inaccuracy:</b> Significant effort variance found (<span style="color:#e74c3c; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) with artificially low logged rework/review time (<span style="color:#e67e22; font-weight:bold;">${combinedReworkRatio.toFixed(1)}%</span>). Team members are likely fixing bugs and refactoring code implicitly under normal development hours without proper activity logging.</li>`);
+    }
+
+    if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
+        insights.push(`<li><b>🏗️ Severe Architectural Coupling:</b> Low defect density (Only <span style="color:#3498db; font-weight:bold;">${s.bugsCount} bugs</span>) but extreme MTTR (<span style="color:#e74c3c; font-weight:bold;">${avgTimePerBug.toFixed(1)} hours/bug</span>). The system suffers from high coupling or fragile dependencies; changing minor code paths requires massive code tracing and extensive debugging effort.</li>`);
+    }
+
+    if (uatLeakageRatio > 25 && s.bugsCount > 0) {
+        insights.push(`<li><b>💥 Severe Quality Gate Escape:</b> Out of total Defects, UAT Leakages reached <span style="color:#e74c3c; font-weight:bold;">${uatLeakageRatio.toFixed(1)}%</span>. Internal quality gates are misaligned with business integration logic or the staging environment lacks proper test-data combinations found in user-acceptance tracks.</li>`);
+    }
+
+    if (s.dbCountCount > 0 && avgCycleTime > 6 && bugSeverityRatio > 35) {
+        insights.push(`<li><b>🗄️ Database Coupling Friction:</b> Data tier modifications (FTE: <span style="color:#8e44ad; font-weight:bold;">${s.dbCountCount.toFixed(2)}</span>) are heavily correlating with an extended cycle time (<span style="color:#e67e22; font-weight:bold;">${avgCycleTime.toFixed(1)} days</span>) and high bug severity. Changes in tables/schemas are causing breaking impacts across application blocks. Require stricter DB design reviews.</li>`);
+    }
+
+    if (s.devCountCount > 0 && s.testerCountCount > 0) {
+        const devToTesterRatio = s.devCountCount / s.testerCountCount;
+        if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
+            insights.push(`<li><b>⚖️ Resource Skew & Test Bottleneck:</b> Asymmetric Dev-to-Tester Capacity ratio (<span style="color:#e67e22; font-weight:bold;">${devToTesterRatio.toFixed(1)}:1</span>) matched with UAT leakages. Testing capacity is diluted under a flood of incoming dev code updates, leading to shallow operational verification passes.</li>`);
+        }
+    }
+
+    if (effortVariance >= -5 && effortVariance <= 10 && combinedReworkRatio <= 12 && calculatedDre >= 90) {
+        insights.push(`<li><b>🌟 Quantitative Process Control (CMMI Level 4 Class):</b> This area exhibits exceptional statistical predictability. Effort variance (<span style="color:#27ae60; font-weight:bold;">${effortVariance.toFixed(1)}%</span>) and rework overhead are perfectly bounded, proving mature refinement, precise sizing, and excellent implementation execution.</li>`);
+    }
+
+    // ========== NEW INSIGHTS (auditor requests) ==========
+
+    // 1. Generic vs Specific Bugs Ratio
+    const genericCount = s.genericBugCount || 0;
+    const specificCount = s.specificBugCount || 0;
+    const totalBugs = genericCount + specificCount;
+    if (totalBugs > 0) {
+        const genericRatio = (genericCount / totalBugs) * 100;
+        const specificRatio = (specificCount / totalBugs) * 100;
+        let analysis = '';
+        if (genericRatio > 60) {
+            analysis = `نسبة عالية من البجز الجينيرك (${genericRatio.toFixed(1)}%) تشير إلى أن معظم العيوب عامة وليست خاصة بحالات محددة، مما قد يدل على ضعف في اختبارات السيناريوهات الخاصة أو نقص في تغطية حالات الحافة.`;
+        } else if (specificRatio > 60) {
+            analysis = `نسبة عالية من البجز الاسبيسيفك (${specificRatio.toFixed(1)}%) تعني أن العيوب مرتبطة بحالات محددة، مما يشير إلى تغطية جيدة للسيناريوهات الخاصة ولكن قد يكون هناك نقص في الاختبارات العامة.`;
+        } else {
+            analysis = `توزيع متوازن بين البجز الجينيرك (${genericRatio.toFixed(1)}%) والاسبيسيفك (${specificRatio.toFixed(1)}%)، مما يعكس تنوعاً جيداً في حالات الاختبار.`;
+        }
+        insights.push(`<li><b>🔀 Generic vs Specific Bugs:</b> ${analysis}</li>`);
+    }
+
+    // 2. Developer Bug Concentration
+    if (s.bugDistributionByDev) {
+        const devs = Object.keys(s.bugDistributionByDev);
+        if (devs.length > 0) {
+            const sortedDevs = devs.sort((a, b) => s.bugDistributionByDev[b] - s.bugDistributionByDev[a]);
+            const topDev = sortedDevs[0];
+            const topCount = s.bugDistributionByDev[topDev];
+            const totalBugsDev = Object.values(s.bugDistributionByDev).reduce((a, b) => a + b, 0);
+            const percentage = ((topCount / totalBugsDev) * 100).toFixed(1);
+            if (topCount > 0) {
+                insights.push(`<li><b>👨‍💻 Developer Bug Concentration:</b> المطور <b>${topDev}</b> يتحمل <b>${percentage}%</b> من إجمالي البجز (${topCount} bugs)، مما قد يشير إلى حاجة مكثفة للتدريب أو مراجعة الكود.</li>`);
+            }
+        }
+    }
+
+    // 3. Story Bug Concentration
+    if (s.bugDistributionByStory) {
+        const stories = Object.keys(s.bugDistributionByStory);
+        if (stories.length > 0) {
+            const sortedStories = stories.sort((a, b) => s.bugDistributionByStory[b] - s.bugDistributionByStory[a]);
+            const topStory = sortedStories[0];
+            const topCount = s.bugDistributionByStory[topStory];
+            const totalBugsStory = Object.values(s.bugDistributionByStory).reduce((a, b) => a + b, 0);
+            const percentage = ((topCount / totalBugsStory) * 100).toFixed(1);
+            if (topCount > 0) {
+                insights.push(`<li><b>📄 Story Bug Concentration:</b> القصة <b>${topStory}</b> تحتوي على <b>${percentage}%</b> من البجز (${topCount} bugs)، مما يستدعي مراجعة متطلباتها وتصميمها.</li>`);
+            }
+        }
+    }
+
+    // 4. High-Severity Bugs by Story
+    if (s.bugSeverityByStory) {
+        const storyIds = Object.keys(s.bugSeverityByStory);
+        let highSeverityStory = null;
+        let maxHigh = 0;
+        storyIds.forEach(id => {
+            const sev = s.bugSeverityByStory[id];
+            const highCount = sev.critical + sev.high;
+            if (highCount > maxHigh) {
+                maxHigh = highCount;
+                highSeverityStory = id;
+            }
+        });
+        if (highSeverityStory && maxHigh > 0) {
+            insights.push(`<li><b>⚠️ High-Severity Story:</b> القصة <b>${highSeverityStory}</b> لديها أعلى عدد من البجز الحرجة/عالية (${maxHigh} bugs)، مما يتطلب تحقيقاً عاجلاً.</li>`);
+        }
+    }
+
+    // 5. Review Focus: Code Standards vs Business Logic
+    if (s.reviewCategories && s.reviewCategories.length > 0) {
+        const codeStandards = s.reviewCategories.filter(c => c === 'Code Standards').length;
+        const businessLogic = s.reviewCategories.filter(c => c === 'Business Logic').length;
+        const totalReviews = s.reviewCategories.length;
+        const csRatio = (codeStandards / totalReviews) * 100;
+        const blRatio = (businessLogic / totalReviews) * 100;
+        if (csRatio > 50) {
+            insights.push(`<li><b>📝 Review Focus:</b> <b>${csRatio.toFixed(1)}%</b> من المراجعات تركز على معايير الكود (Code Standards)، مما يشير إلى اهتمام كبير بالجودة البرمجية ولكن قد يغفل عن التحقق من صحة البزنس لوجيك.</li>`);
+        } else if (blRatio > 50) {
+            insights.push(`<li><b>📝 Review Focus:</b> <b>${blRatio.toFixed(1)}%</b> من المراجعات تركز على البزنس لوجيك، مما يعكس اهتماماً بالمتطلبات الوظيفية ولكن قد تضعف مراجعة معايير الكود.</li>`);
+        } else {
+            insights.push(`<li><b>📝 Review Focus:</b> توزيع متوازن بين مراجعة الكود والبزنس لوجيك (Code: ${csRatio.toFixed(1)}%, Logic: ${blRatio.toFixed(1)}%).</li>`);
+        }
+    }
+
+    // 6. Testing Team Reviews (if any)
+    if (s.reviewActivities && s.reviewActivities.length > 0) {
+        const testingReviews = s.reviewActivities.filter(a => a === 'Testing').length;
+        const totalReviews = s.reviewActivities.length;
+        if (testingReviews > 0) {
+            const ratio = (testingReviews / totalReviews) * 100;
+            insights.push(`<li><b>🧪 Testing Team Reviews:</b> <b>${ratio.toFixed(1)}%</b> من المراجعات تمت بواسطة فريق الاختبار. إذا كانت هذه المراجعات تتعلق بنقص في التغطية أو ضعف في التست كيسز، فيمكن تحسين جودة التست كيسز من خلال تحليل العيوب المتكررة.</li>`);
+        }
+    }
+
+    // 7. Bug Categories (UI, DB, Performance, Logic, Other)
+    if (s.bugCategories && s.bugCategories.length > 0) {
+        const categoryCount = {};
+        s.bugCategories.forEach(cat => {
+            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+        });
+        const total = s.bugCategories.length;
+        let categoriesStr = '';
+        for (let cat in categoryCount) {
+            const pct = ((categoryCount[cat] / total) * 100).toFixed(1);
+            categoriesStr += `${cat}: ${pct}%, `;
+        }
+        if (categoriesStr.length > 0) {
+            categoriesStr = categoriesStr.slice(0, -2);
+            insights.push(`<li><b>🏷️ Bug Categories:</b> ${categoriesStr}</li>`);
+        }
+    }
+
+    // 8. Repeated Bug Titles
+    if (s.bugTitles && s.bugTitles.length > 0) {
+        const titleFreq = {};
+        s.bugTitles.forEach(title => {
+            const key = title.trim().toLowerCase();
+            titleFreq[key] = (titleFreq[key] || 0) + 1;
+        });
+        const duplicates = Object.keys(titleFreq).filter(key => titleFreq[key] > 1);
+        if (duplicates.length > 0) {
+            const dupSummary = duplicates.slice(0, 3).map(key => `"${key}" (${titleFreq[key]} مرات)`).join('، ');
+            insights.push(`<li><b>🔄 Repeated Bug Titles:</b> تم تسجيل ${duplicates.length} عنوان مكرر، أبرزها: ${dupSummary}. هذا يشير إلى أن بعض المشكلات لم تُحل بشكل جذري.</li>`);
+        }
+    }
+
+    // 9. High-Severity MTTR approximation
+    if (s.bugsCount > 0 && avgTimePerBug > 0) {
+        // Rough estimate: average time per critical/high bug (using total rework time divided by high-sev count)
+        const highSevCount = s.bugsCrit + s.bugsHigh;
+        if (highSevCount > 0) {
+            const avgTimePerHighBug = s.reworkTime / highSevCount;
+            if (avgTimePerHighBug > 6) {
+                insights.push(`<li><b>⏱️ High-Severity MTTR:</b> متوسط وقت حل البجز الحرجة/عالية يتجاوز ${avgTimePerHighBug.toFixed(1)} ساعة، مما يستدعي تحسين عملية التصحيح.</li>`);
+            }
+        }
+    }
+
+    // Fallback if no insights at all
+    if (insights.length === 0) {
+        return "<li><b>✅ Balanced Quality Lifecycle:</b> No critical dynamic anomalies observed for this iteration. All performance, effort variances, and quality gating structures reside safely within engineering control thresholds.</li>";
+    }
+
+    return insights.join('');
+}
+
 function renderPeopleView() {
     const container = document.getElementById('people-view');
     if (!container) return;
