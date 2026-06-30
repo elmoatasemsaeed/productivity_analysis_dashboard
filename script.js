@@ -1239,87 +1239,106 @@ function generateAdvancedQualityAnalysis(s) {
     const reviewSeverityRatio = s.reviewCount > 0 ? (highSevReviews / s.reviewCount) * 100 : 0;
     const uatLeakageRatio = totalAllBugsLocal > 0 ? ((s.totalUatBugs || 0) / totalAllBugsLocal) * 100 : 0;
 
-    // ========== Insights (Statistical only, English, no recommendations) ==========
+    // Helper to create a tooltip icon with explanation
+    const infoIcon = (text) => `<span style="cursor:help; font-size:0.8em; color:#888; margin-left:4px;" title="${text}">ⓘ</span>`;
+
+    // ========== Insights (Statistical only, English, with tooltips) ==========
 
     // 1. Shift-Left
-    insights.push(`<li><b>Shift-Left Strategy Efficiency:</b> Peer Reviews intercepted ${reviewCatchRate.toFixed(1)}% of total issues (${s.reviewCount} reviews out of ${totalIssues} total issues).</li>`);
+    const shiftLeftExplanation = `Reviews / (Bugs + Reviews) * 100 = ${s.reviewCount} / ${totalIssues} * 100 = ${reviewCatchRate.toFixed(1)}%`;
+    insights.push(`<li><b>Shift-Left Strategy Efficiency</b> ${infoIcon(shiftLeftExplanation)}: Peer Reviews intercepted ${reviewCatchRate.toFixed(1)}% of total issues (${s.reviewCount} reviews out of ${totalIssues} total issues).</li>`);
 
     // 2. Effort & Rework Correlations
     if (effortVariance > 15 && combinedReworkRatio > 15) {
-        insights.push(`<li><b>Rework-Driven Slippage:</b> Effort Variance is ${effortVariance.toFixed(1)}% and Rework Ratio is ${combinedReworkRatio.toFixed(1)}%.</li>`);
+        const explanation = `Effort Variance = (Actual - Estimate)/Estimate * 100 = ${((s.totalAct - s.totalEst) / s.totalEst * 100).toFixed(1)}%, Rework Ratio = (ReworkTime+ReviewTime)/Actual * 100 = ${combinedReworkRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Rework-Driven Slippage</b> ${infoIcon(explanation)}: Effort Variance is ${effortVariance.toFixed(1)}% and Rework Ratio is ${combinedReworkRatio.toFixed(1)}%.</li>`);
     } else if (effortVariance > 15 && combinedReworkRatio <= 15) {
-        insights.push(`<li><b>Estimation Model Baseline Flaw:</b> Effort Variance is ${effortVariance.toFixed(1)}% while Rework/Review metrics are ${combinedReworkRatio.toFixed(1)}%.</li>`);
+        const explanation = `Effort Variance = ${effortVariance.toFixed(1)}% (Actual ${s.totalAct.toFixed(1)}h vs Estimate ${s.totalEst.toFixed(1)}h), Rework/Review = ${combinedReworkRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Estimation Model Baseline Flaw</b> ${infoIcon(explanation)}: Effort Variance is ${effortVariance.toFixed(1)}% while Rework/Review metrics are ${combinedReworkRatio.toFixed(1)}%.</li>`);
     } else if (effortVariance <= 0 && combinedReworkRatio > 20) {
-        insights.push(`<li><b>Aggressive Coding & Velocity Risk:</b> Effort Variance is ${effortVariance.toFixed(1)}% and Rework Density is ${combinedReworkRatio.toFixed(1)}%.</li>`);
+        const explanation = `Effort Variance = ${effortVariance.toFixed(1)}% (under budget), Rework Density = ${combinedReworkRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Aggressive Coding & Velocity Risk</b> ${infoIcon(explanation)}: Effort Variance is ${effortVariance.toFixed(1)}% and Rework Density is ${combinedReworkRatio.toFixed(1)}%.</li>`);
     }
 
     // 3. DRE & UAT Leakage
     if (calculatedDre < 85 && (s.totalUatBugs || 0) > 0) {
-        insights.push(`<li><b>Degraded Quality Shield (Low DRE):</b> DRE is ${calculatedDre.toFixed(1)}% with ${s.totalUatBugs} UAT Leakages out of ${totalAllBugsLocal} total defects.</li>`);
+        const explanation = `DRE = Bugs / (Bugs+UAT) * 100 = ${s.bugsCount} / ${totalAllBugsLocal} * 100 = ${calculatedDre.toFixed(1)}%, UAT Leakages = ${s.totalUatBugs}`;
+        insights.push(`<li><b>Degraded Quality Shield (Low DRE)</b> ${infoIcon(explanation)}: DRE is ${calculatedDre.toFixed(1)}% with ${s.totalUatBugs} UAT Leakages out of ${totalAllBugsLocal} total defects.</li>`);
     }
 
     // 4. Bug Severity
     if (s.bugsCount > 0) {
         if (bugSeverityRatio > 30) {
-            insights.push(`<li><b>Defect Severity Alert:</b> High/Critical bugs constitute ${bugSeverityRatio.toFixed(1)}% of total bugs (${highSevBugs} out of ${s.bugsCount} bugs).</li>`);
+            const explanation = `High/Critical Bugs / Total Bugs * 100 = ${highSevBugs} / ${s.bugsCount} * 100 = ${bugSeverityRatio.toFixed(1)}%`;
+            insights.push(`<li><b>Defect Severity Alert</b> ${infoIcon(explanation)}: High/Critical bugs constitute ${bugSeverityRatio.toFixed(1)}% of total bugs (${highSevBugs} out of ${s.bugsCount} bugs).</li>`);
             if (highSevReviews === 0) {
-                insights.push(`<li><b>Review Blind Spot Diagnosis:</b> Testing detected ${highSevBugs} High/Critical bugs, while Peer Reviews detected 0.</li>`);
+                insights.push(`<li><b>Review Blind Spot Diagnosis</b> ${infoIcon('High/Critical bugs detected by Testing = ' + highSevBugs + ', by Reviews = 0')}: Testing detected ${highSevBugs} High/Critical bugs, while Peer Reviews detected 0.</li>`);
             }
         } else {
-            insights.push(`<li><b>Defect Profile Stability:</b> High-severity bugs are ${bugSeverityRatio.toFixed(1)}% of total bugs.</li>`);
+            const explanation = `High/Critical Bugs / Total Bugs * 100 = ${bugSeverityRatio.toFixed(1)}%`;
+            insights.push(`<li><b>Defect Profile Stability</b> ${infoIcon(explanation)}: High-severity bugs are ${bugSeverityRatio.toFixed(1)}% of total bugs.</li>`);
         }
     }
 
     // 5. MTTR & Cycle Time
     if (avgTimePerBug > 4 && s.bugsCount > 0) {
-        insights.push(`<li><b>Rework Friction:</b> Mean Time to Resolve (MTTR) is ${avgTimePerBug.toFixed(1)}h/bug (total rework ${s.reworkTime.toFixed(1)}h / ${s.bugsCount} bugs).</li>`);
+        const explanation = `MTTR = ReworkTime / Bugs = ${s.reworkTime.toFixed(1)}h / ${s.bugsCount} = ${avgTimePerBug.toFixed(1)}h/bug`;
+        insights.push(`<li><b>Rework Friction</b> ${infoIcon(explanation)}: Mean Time to Resolve (MTTR) is ${avgTimePerBug.toFixed(1)}h/bug (total rework ${s.reworkTime.toFixed(1)}h / ${s.bugsCount} bugs).</li>`);
         if (avgCycleTime > 5) {
-            insights.push(`<li><b>Blocked Cycle Time Correlation:</b> Cycle Time is ${avgCycleTime.toFixed(1)} days, MTTR is ${avgTimePerBug.toFixed(1)}h.</li>`);
+            const explanation2 = `Cycle Time = ${avgCycleTime.toFixed(1)} days, MTTR = ${avgTimePerBug.toFixed(1)}h/bug`;
+            insights.push(`<li><b>Blocked Cycle Time Correlation</b> ${infoIcon(explanation2)}: Cycle Time is ${avgCycleTime.toFixed(1)} days, MTTR is ${avgTimePerBug.toFixed(1)}h.</li>`);
         }
     }
 
     // 6. Review vs Testing Severity
     if (reviewSeverityRatio > 40 && bugSeverityRatio < 15 && s.reviewCount > 0) {
-        insights.push(`<li><b>High-Fidelity Pre-Emptive Review:</b> High-Sev Review is ${reviewSeverityRatio.toFixed(1)}%, High-Sev Testing Bugs is ${bugSeverityRatio.toFixed(1)}%.</li>`);
+        const explanation = `High-Sev Review = ${reviewSeverityRatio.toFixed(1)}% (${highSevReviews} reviews), High-Sev Testing = ${bugSeverityRatio.toFixed(1)}%`;
+        insights.push(`<li><b>High-Fidelity Pre-Emptive Review</b> ${infoIcon(explanation)}: High-Sev Review is ${reviewSeverityRatio.toFixed(1)}%, High-Sev Testing Bugs is ${bugSeverityRatio.toFixed(1)}%.</li>`);
     }
 
     if (s.reviewCount > 10 && highSevReviews === 0 && bugSeverityRatio > 40) {
-        insights.push(`<li><b>Superficial Peer-Review Pattern:</b> ${s.reviewCount} Peer Reviews, 0 high-sev issues detected, while Testing high-sev is ${bugSeverityRatio.toFixed(1)}%.</li>`);
+        const explanation = `Reviews = ${s.reviewCount}, High-Sev Reviews = 0, Testing High-Sev = ${bugSeverityRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Superficial Peer-Review Pattern</b> ${infoIcon(explanation)}: ${s.reviewCount} Peer Reviews, 0 high-sev issues detected, while Testing high-sev is ${bugSeverityRatio.toFixed(1)}%.</li>`);
     }
 
     // 7. Hidden Rework
     if (effortVariance > 25 && combinedReworkRatio < 5 && s.bugsCount > 0) {
-        insights.push(`<li><b>Hidden Rework & Timesheet Inaccuracy:</b> Effort Variance is ${effortVariance.toFixed(1)}%, logged Rework/Review is ${combinedReworkRatio.toFixed(1)}%.</li>`);
+        const explanation = `Effort Variance = ${effortVariance.toFixed(1)}%, logged Rework/Review = ${combinedReworkRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Hidden Rework & Timesheet Inaccuracy</b> ${infoIcon(explanation)}: Effort Variance is ${effortVariance.toFixed(1)}%, logged Rework/Review is ${combinedReworkRatio.toFixed(1)}%.</li>`);
     }
 
     // 8. Architectural Coupling
     if (s.bugsCount > 0 && s.bugsCount <= 3 && avgTimePerBug > 8) {
-        insights.push(`<li><b>Severe Architectural Coupling:</b> ${s.bugsCount} bugs, MTTR is ${avgTimePerBug.toFixed(1)}h.</li>`);
+        const explanation = `Bugs = ${s.bugsCount}, MTTR = ${avgTimePerBug.toFixed(1)}h`;
+        insights.push(`<li><b>Severe Architectural Coupling</b> ${infoIcon(explanation)}: ${s.bugsCount} bugs, MTTR is ${avgTimePerBug.toFixed(1)}h.</li>`);
     }
 
     // 9. Quality Gate Escape
     if (uatLeakageRatio > 25 && s.bugsCount > 0) {
-        insights.push(`<li><b>Severe Quality Gate Escape:</b> UAT Leakages are ${uatLeakageRatio.toFixed(1)}% of total defects (${s.totalUatBugs} UAT / ${totalAllBugsLocal} total).</li>`);
+        const explanation = `UAT Leakages / Total Defects * 100 = ${s.totalUatBugs} / ${totalAllBugsLocal} * 100 = ${uatLeakageRatio.toFixed(1)}%`;
+        insights.push(`<li><b>Severe Quality Gate Escape</b> ${infoIcon(explanation)}: UAT Leakages are ${uatLeakageRatio.toFixed(1)}% of total defects (${s.totalUatBugs} UAT / ${totalAllBugsLocal} total).</li>`);
     }
 
     // 10. Resource Skew
     if (s.devCountCount > 0 && s.testerCountCount > 0) {
         const devToTesterRatio = s.devCountCount / s.testerCountCount;
         if (devToTesterRatio > 3 && s.totalUatBugs > 2) {
-            insights.push(`<li><b>Resource Skew & Test Bottleneck:</b> Dev-to-Tester ratio is ${devToTesterRatio.toFixed(1)}:1, UAT bugs is ${s.totalUatBugs}.</li>`);
+            const explanation = `Dev FTE = ${s.devCountCount.toFixed(2)}, Tester FTE = ${s.testerCountCount.toFixed(2)}, Ratio = ${devToTesterRatio.toFixed(1)}:1, UAT = ${s.totalUatBugs}`;
+            insights.push(`<li><b>Resource Skew & Test Bottleneck</b> ${infoIcon(explanation)}: Dev-to-Tester ratio is ${devToTesterRatio.toFixed(1)}:1, UAT bugs is ${s.totalUatBugs}.</li>`);
         }
     }
 
-    // ========== NEW: Statistical-only insights (no recommendations) ==========
+    // ========== NEW: Statistical-only insights with tooltips ==========
 
-    // 11. Generic vs Specific Bugs (numbers and percentages only)
+    // 11. Generic vs Specific Bugs
     const genericCount = s.genericBugCount || 0;
     const specificCount = s.specificBugCount || 0;
     const totalBugsGenSpec = genericCount + specificCount;
     if (totalBugsGenSpec > 0) {
         const genericRatio = (genericCount / totalBugsGenSpec) * 100;
         const specificRatio = (specificCount / totalBugsGenSpec) * 100;
-        insights.push(`<li><b>Generic vs Specific Bugs:</b> Generic: ${genericCount} (${genericRatio.toFixed(1)}%), Specific: ${specificCount} (${specificRatio.toFixed(1)}%).</li>`);
+        const explanation = `Generic = ${genericCount} (${genericRatio.toFixed(1)}%), Specific = ${specificCount} (${specificRatio.toFixed(1)}%)`;
+        insights.push(`<li><b>Generic vs Specific Bugs</b> ${infoIcon(explanation)}: Generic: ${genericCount} (${genericRatio.toFixed(1)}%), Specific: ${specificCount} (${specificRatio.toFixed(1)}%).</li>`);
     }
 
     // 12. Repeated Bug Titles
@@ -1332,11 +1351,12 @@ function generateAdvancedQualityAnalysis(s) {
         const duplicates = Object.keys(titleFreq).filter(key => titleFreq[key] > 1);
         if (duplicates.length > 0) {
             const dupSummary = duplicates.slice(0, 3).map(key => `"${key}" (${titleFreq[key]}x)`).join(', ');
-            insights.push(`<li><b>Repeated Bug Titles:</b> ${duplicates.length} duplicate titles found. Top repeats: ${dupSummary}.</li>`);
+            const explanation = `Total titles = ${s.bugTitles.length}, duplicates = ${duplicates.length}`;
+            insights.push(`<li><b>Repeated Bug Titles</b> ${infoIcon(explanation)}: ${duplicates.length} duplicate titles found. Top repeats: ${dupSummary}.</li>`);
         }
     }
 
-    // 13. Bug Categories (UI, DB, Performance, Logic, Other)
+    // 13. Bug Categories
     if (s.bugCategories && s.bugCategories.length > 0) {
         const categoryCount = {};
         s.bugCategories.forEach(cat => {
@@ -1350,20 +1370,22 @@ function generateAdvancedQualityAnalysis(s) {
         }
         if (categoriesStr.length > 0) {
             categoriesStr = categoriesStr.slice(0, -2);
-            insights.push(`<li><b>Bug Categories:</b> ${categoriesStr} (based on ${total} bugs).</li>`);
+            const explanation = `Based on ${total} bug titles, classified by keywords (UI, DB, Performance, Logic, Other)`;
+            insights.push(`<li><b>Bug Categories</b> ${infoIcon(explanation)}: ${categoriesStr} (based on ${total} bugs).</li>`);
         }
     }
 
-    // 14. High-Severity MTTR (average resolution time for critical/high bugs)
+    // 14. High-Severity MTTR
     const highSevCount = s.bugsCrit + s.bugsHigh;
     if (highSevCount > 0 && s.reworkTime > 0) {
         const avgTimePerHighBug = s.reworkTime / highSevCount;
-        insights.push(`<li><b>High-Severity MTTR:</b> Average resolution time for Critical/High bugs is ${avgTimePerHighBug.toFixed(1)}h (total rework ${s.reworkTime.toFixed(1)}h / ${highSevCount} high-sev bugs).</li>`);
+        const explanation = `Total rework time = ${s.reworkTime.toFixed(1)}h, High-sev bugs = ${highSevCount}, Avg = ${avgTimePerHighBug.toFixed(1)}h`;
+        insights.push(`<li><b>High-Severity MTTR</b> ${infoIcon(explanation)}: Average resolution time for Critical/High bugs is ${avgTimePerHighBug.toFixed(1)}h (total rework ${s.reworkTime.toFixed(1)}h / ${highSevCount} high-sev bugs).</li>`);
     }
 
     // Fallback if no insights at all
     if (insights.length === 0) {
-        return "<li><b>Balanced Quality Lifecycle:</b> No anomalies detected. All metrics are within typical ranges.</li>";
+        return "<li><b>Balanced Quality Lifecycle</b> <span style=\"cursor:help; font-size:0.8em; color:#888; margin-left:4px;\" title=\"No metrics exceeded thresholds\">ⓘ</span>: No anomalies detected. All metrics are within typical ranges.</li>";
     }
 
     return insights.join('');
