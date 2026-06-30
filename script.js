@@ -1242,8 +1242,7 @@ function generateAdvancedQualityAnalysis(s) {
     // Helper to create a tooltip icon with explanation
     const infoIcon = (text) => `<span style="cursor:help; font-size:0.8em; color:#888; margin-left:4px;" title="${text}">ⓘ</span>`;
 
-    // ========== Insights (Statistical only, English, with tooltips) ==========
-
+    // ========== Existing insights (kept, with tooltips) ==========
     // 1. Shift-Left
     const shiftLeftExplanation = `Reviews / (Bugs + Reviews) * 100 = ${s.reviewCount} / ${totalIssues} * 100 = ${reviewCatchRate.toFixed(1)}%`;
     insights.push(`<li><b>Shift-Left Strategy Efficiency</b> ${infoIcon(shiftLeftExplanation)}: Peer Reviews intercepted ${reviewCatchRate.toFixed(1)}% of total issues (${s.reviewCount} reviews out of ${totalIssues} total issues).</li>`);
@@ -1328,7 +1327,7 @@ function generateAdvancedQualityAnalysis(s) {
         }
     }
 
-    // ========== NEW: Statistical-only insights with tooltips ==========
+    // ========== Existing statistical insights (with tooltips) ==========
 
     // 11. Generic vs Specific Bugs
     const genericCount = s.genericBugCount || 0;
@@ -1381,6 +1380,55 @@ function generateAdvancedQualityAnalysis(s) {
         const avgTimePerHighBug = s.reworkTime / highSevCount;
         const explanation = `Total rework time = ${s.reworkTime.toFixed(1)}h, High-sev bugs = ${highSevCount}, Avg = ${avgTimePerHighBug.toFixed(1)}h`;
         insights.push(`<li><b>High-Severity MTTR</b> ${infoIcon(explanation)}: Average resolution time for Critical/High bugs is ${avgTimePerHighBug.toFixed(1)}h (total rework ${s.reworkTime.toFixed(1)}h / ${highSevCount} high-sev bugs).</li>`);
+    }
+
+    // ========== NEW: Story-level bug concentration ==========
+
+    // 15. User Story with Highest Total Bugs
+    if (s.bugDistributionByStory) {
+        const storyIds = Object.keys(s.bugDistributionByStory);
+        if (storyIds.length > 0) {
+            let maxStory = null;
+            let maxCount = 0;
+            let totalBugsAllStories = 0;
+            for (let id in s.bugDistributionByStory) {
+                const count = s.bugDistributionByStory[id];
+                totalBugsAllStories += count;
+                if (count > maxCount) {
+                    maxCount = count;
+                    maxStory = id;
+                }
+            }
+            if (maxStory && maxCount > 0) {
+                const percentage = ((maxCount / totalBugsAllStories) * 100).toFixed(1);
+                const explanation = `Total bugs across all stories = ${totalBugsAllStories}, Story '${maxStory}' has ${maxCount} bugs (${percentage}%)`;
+                insights.push(`<li><b>Top Story by Total Bugs</b> ${infoIcon(explanation)}: Story <b>${maxStory}</b> has the highest bug count with ${maxCount} bugs (${percentage}% of total bugs).</li>`);
+            }
+        }
+    }
+
+    // 16. User Story with Highest Critical/High Bugs
+    if (s.bugSeverityByStory) {
+        const storyIds = Object.keys(s.bugSeverityByStory);
+        if (storyIds.length > 0) {
+            let maxStory = null;
+            let maxHighCount = 0;
+            let totalHighBugsAllStories = 0;
+            for (let id in s.bugSeverityByStory) {
+                const sev = s.bugSeverityByStory[id];
+                const highCount = (sev.critical || 0) + (sev.high || 0);
+                totalHighBugsAllStories += highCount;
+                if (highCount > maxHighCount) {
+                    maxHighCount = highCount;
+                    maxStory = id;
+                }
+            }
+            if (maxStory && maxHighCount > 0) {
+                const percentage = ((maxHighCount / totalHighBugsAllStories) * 100).toFixed(1);
+                const explanation = `Total Critical/High bugs across all stories = ${totalHighBugsAllStories}, Story '${maxStory}' has ${maxHighCount} Critical/High bugs (${percentage}%)`;
+                insights.push(`<li><b>Top Story by Critical/High Bugs</b> ${infoIcon(explanation)}: Story <b>${maxStory}</b> has the highest number of Critical/High bugs (${maxHighCount} bugs, ${percentage}% of total Critical/High bugs).</li>`);
+            }
+        }
     }
 
     // Fallback if no insights at all
