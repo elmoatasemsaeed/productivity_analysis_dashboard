@@ -1461,7 +1461,7 @@ if (s.maxCycleTimeStoryId && s.maxCycleTime > 0) {
     const cycleHours = cycleDays * 5;
     const estVsCycleRatio = estHours > 0 ? ((cycleHours / estHours) * 100).toFixed(1) : 'N/A';
     const reworkVsCycleRatio = cycleHours > 0 ? ((reworkHours / cycleHours) * 100).toFixed(1) : 'N/A';
-    const explanation = `Story '${s.maxCycleTimeStoryId}': Cycle Time = ${cycleDays} days (${cycleHours}h, based on 5h/day), Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.`;
+    const explanation = `Story '${s.maxCycleTimeStoryId}': Cycle Time = ${cycleDays} days (${cycleHours}h), Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.`;
     insights.push(`<li><b>Highest Cycle Time Story</b> ${infoIcon(explanation)}: Story <b>${s.maxCycleTimeStoryId}</b> has the highest cycle time (${cycleDays} days, ${cycleHours}h). Total Estimation = ${estHours.toFixed(1)}h, Rework = ${reworkHours.toFixed(1)}h. Cycle/Est = ${estVsCycleRatio}%, Rework/Cycle = ${reworkVsCycleRatio}%.</li>`);
 }
 
